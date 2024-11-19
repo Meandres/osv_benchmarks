@@ -1,5 +1,5 @@
-.PHONY: module
+.PHONY: multichase
 module: multichase
 
-%:
-	$(MAKE) -f multichase/Makefile $@
+multichase:
+		$(MAKE) -C multichase
