@@ -1,0 +1,3 @@
+[submodule "multichase/multichase"]
+	path = multichase/multichase
+	url = https://github.com/google/multichase.git

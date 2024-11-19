@@ -1,0 +1,5 @@
+/fairness: ${MODULE_DIR}/multichase/fairness
+/gen_expand: ${MODULE_DIR}/multichase/gen_expand
+/multichase: ${MODULE_DIR}/multichase/multichase
+/multiload: ${MODULE_DIR}/multichase/multiload
+/pingpong: ${MODULE_DIR}/multichase/pingpong
