@@ -1,6 +1,7 @@
-// #include "pagealloc.hh"
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <fstream>
 #include <iostream>
 #include <osv/pagealloc.hh>
 #include <vector>
@@ -17,14 +18,12 @@ inline uint64_t rdtsc(void) {
   return tsc.val;
 }
 
-int mark(const size_t frameSize, const size_t operations, uint64_t *res) {
-
+int bench(const size_t allocations, uint64_t *res, std::ostream *output,
+          bool machineReadable) {
   std::vector<void *> mem;
-  mem.reserve(operations);
+  mem.reserve(allocations);
   uint64_t startAlloc = rdtsc();
-  for (size_t i = 0; i < operations; ++i) {
-    // void *block = memory::alloc_page();
-    // void *block = std::malloc(frameSize);
+  for (size_t i = 0; i < allocations; ++i) {
     void *block = memory::physically_alloc_page();
     if (!block) {
       std::cerr << "Memory allocation failed at iteration " << i << "\n";
@@ -36,37 +35,76 @@ int mark(const size_t frameSize, const size_t operations, uint64_t *res) {
 
   auto startDealloc = rdtsc();
   for (void *m : mem) {
-    // free(m);
-    // auto pr = new (v) memory::page_range(memory::page_size);
     memory::physically_free_page(m);
   }
   auto endDealloc = rdtsc();
   res[1] += (endDealloc - startDealloc);
 
-  std::cout << endAlloc - startAlloc << " | " << endDealloc - startDealloc
+  (*output) << endAlloc - startAlloc << "," << endDealloc - startDealloc
             << "\n";
 
   return 0;
 }
 
-int main() {
-  std::cout << "Frame Allocator Benchmark:\n";
-  size_t const frameSize = 4096;   // Size of each memory block
-  size_t const operations = 50000; // Number of allocations and deallocations
-  size_t const iterations = 10;
+int main(int argc, char *argv[]) {
+  size_t allocations = 50000;
+  size_t iterations = 10;
+  size_t threads = 1;
+  std::ostream *output = &std::cout; // Default to stdout
+  std::ofstream fileOutput;
+  bool machineReadable = false;
 
-  uint64_t res[2];
-
-  for (size_t i = 0; i < iterations; i++) {
-    std::cout << "Iteration " << i << ": ";
-    mark(frameSize, operations, res);
+  for (int i = 1; i < argc; ++i) {
+    if (strcmp(argv[i], "-a") == 0 && i + 1 < argc) {
+      allocations = std::strtoul(argv[++i], nullptr, 10);
+    } else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
+      iterations = std::strtoul(argv[++i], nullptr, 10);
+    } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
+      threads = std::strtoul(argv[++i], nullptr, 10);
+    } else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
+      fileOutput.open(argv[++i]);
+      if (!fileOutput.is_open()) {
+        std::cerr << "Error: Unable to open file " << argv[i]
+                  << " for writing.\n";
+        return 1;
+      }
+      output = &fileOutput; // Redirect output to the file
+    } else if (strcmp(argv[i], "-m") == 0) {
+      machineReadable = true;
+    } else {
+      std::cerr << "Usage: " << argv[0]
+                << " [-a allocations] [-i iterations] [-o output_file] [-m]\n";
+      return 1;
+    }
   }
 
-  std::cout << "Frame Allocator Benchmark:\n";
-  std::cout << "Frame Size: " << frameSize << " bytes\n";
-  std::cout << "Operations: " << operations << "\n";
-  std::cout << "Allocation:   " << res[0] / iterations << " Ticks\n";
-  std::cout << "Deallocation: " << res[1] / iterations << " Ticks\n";
+  if (!machineReadable) {
+    (*output) << "Frame Allocator Benchmark:\n";
+    (*output) << "Allocations per iteration: " << allocations << "\n";
+    (*output) << "Number of iterations: " << iterations << "\n";
+  } else {
+    (*output) << "operations " << allocations << "\n";
+    (*output) << "iterations " << allocations << "\n";
+    (*output) << "alloc_ticks, dealloc_ticks\n";
+  }
+
+  uint64_t res[2] = {0, 0};
+
+  for (size_t i = 0; i < iterations; i++) {
+    bench(allocations, res, output, machineReadable);
+  }
+
+  if (!machineReadable) {
+    (*output) << "Frame Allocator Benchmark Results:\n";
+    (*output) << "Allocations: " << allocations << "\n";
+    (*output) << "Per allocation:   " << res[0] / iterations / allocations
+              << " Ticks\n";
+    (*output) << "Per deallocation: " << res[1] / iterations / allocations
+              << " Ticks\n";
+  }
+  if (fileOutput.is_open()) {
+    fileOutput.close();
+  }
 
   return 0;
 }
