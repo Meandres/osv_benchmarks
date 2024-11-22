@@ -1,3 +1,6 @@
 [submodule "multichase/multichase"]
 	path = multichase/multichase
 	url = https://github.com/google/multichase.git
+[submodule "alloc-test/alloc-test"]
+	path = alloc-test/alloc-test
+	url = https://github.com/node-dot-cpp/alloc-test.git
