@@ -1,1 +1,2 @@
-/micro: ${MODULE_DIR}/micro
+/bulk: ${MODULE_DIR}/bulk
+/repeat: ${MODULE_DIR}/repeat

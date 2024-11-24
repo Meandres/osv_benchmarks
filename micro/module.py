@@ -1,3 +1,3 @@
 from osv.modules import api
 
-default = api.run("/micro")
+default = api.run("/bulk")

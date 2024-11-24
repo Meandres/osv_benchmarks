@@ -1,3 +1,4 @@
 .cache
-micro
 compile_commands.json
+bulk
+repeat
