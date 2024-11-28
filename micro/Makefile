@@ -1,15 +1,12 @@
 .PHONY: micro all
 module: micro
 
-LDFLAGS += -L../../build/release.x64/ -losv -Wl,--no-as-needed
-INCLUDES = -I../../include
-
-TARGETS = bulk repeat
+TARGETS = bulk repeat random
 
 all: micro
 
 micro: $(TARGETS)
 
 %: %.cpp
-	$(CXX) $(INCLUDES) -o $@ $< $(LDFLAGS)
+	$(CXX) -o $@ $<
 

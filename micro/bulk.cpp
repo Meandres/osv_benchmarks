@@ -2,108 +2,93 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <iostream>
 #include <ostream>
-#include <osv/pagealloc.hh>
 #include <thread>
 #include <vector>
 
 namespace benchmark {
 
 // Alloc a number of pages one by one and free them afterwards
-int bulk_worker(const size_t allocations, uint64_t *res) {
+void bulk_worker(unsigned core_id, size_t const measurements,
+                 size_t const granularity, uint64_t *alloc_time,
+                 uint64_t *free_time) {
+  stick_this_thread_to_core(core_id);
   std::vector<void *> mem;
-  mem.reserve(allocations);
-  uint64_t startAlloc = rdtsc();
-  for (size_t i = 0; i < allocations; ++i) {
-    void *page = memory::physically_alloc_page();
-    if (!page) {
-      std::cerr << "Memory allocation failed at iteration " << i << "\n";
+  mem.reserve(measurements * granularity);
+  uint64_t start;
+  uint64_t end;
+
+  for (size_t i = 0; i < measurements; ++i) {
+    start = rdtsc();
+    for (size_t j = 0; j < granularity; ++j) {
+      void *page = malloc(4096);
+      if (!page) {
+        std::cerr << "Memory allocation failed at iteration " << i << "\n";
+        exit(1);
+      }
+      mem.push_back(page);
     }
-    // Write to trigger EPT fault (not needed for physically_alloc_page)
-    *static_cast<int *>(page) = 1;
-    mem.push_back(page);
+    end = rdtsc();
+    alloc_time[i] = end - start;
   }
-  uint64_t endAlloc = rdtsc();
-  res[0] = (endAlloc - startAlloc);
 
-  auto startDealloc = rdtsc();
-  for (void *m : mem) {
-    memory::physically_free_page(m);
+  for (size_t i = 0; i < measurements; ++i) {
+    start = rdtsc();
+    for (size_t j = 0; j < granularity; ++j) {
+      free(mem.at(i * granularity + j));
+    }
+    end = rdtsc();
+    free_time[i] = end - start;
   }
-  auto endDealloc = rdtsc();
-  res[1] = (endDealloc - startDealloc);
-
-  return 0;
 }
 
 } // namespace benchmark
 
 int main(int argc, char *argv[]) {
-  size_t allocations = 50000;
+  size_t measurements = 4096;
+  size_t granularity = 128;
   size_t iterations = 10;
   size_t threads = 1;
-  u64 seed = 0;
-  std::ostream *output = &std::cout; // Default to stdout
-  std::ofstream fileOutput;
+  benchmark::parse_args(argc, argv, &measurements, &granularity, &iterations,
+                        &threads);
+  std::cout << "Allocation|Cycles\n";
 
-  for (int i = 1; i < argc; ++i) {
-    if (strcmp(argv[i], "-a") == 0 && i + 1 < argc) {
-      allocations = std::strtoul(argv[++i], nullptr, 10);
-    } else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
-      iterations = std::strtoul(argv[++i], nullptr, 10);
-    } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
-      threads = std::strtoul(argv[++i], nullptr, 10);
-    } else if (strcmp(argv[i], "-s") == 0 && i + 1 < argc) {
-      seed = std::strtoul(argv[++i], nullptr, 10);
-    } else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
-      fileOutput.open(argv[++i]);
-      if (!fileOutput.is_open()) {
-        std::cerr << "Error: Unable to open file " << argv[i]
-                  << " for writing.\n";
-        return 1;
-      }
-      output = &fileOutput; // Redirect output to the file
-    } else {
-      std::cerr << "Usage: " << argv[0]
-                << " [-a allocations] [-i iterations] [-t threads] [-o "
-                   "output_file]\n";
-      return 1;
-    }
-  }
-
-  (*output) << "operations " << allocations << "\n";
-  (*output) << "threads    " << threads << "\n";
-  (*output) << "iterations " << iterations << "\n";
-  (*output) << "[iteration][thread] alloc_ticks, dealloc_ticks\n";
-
-  uint64_t it[iterations][threads][2];
+  uint64_t alloc_time[threads][measurements];
+  uint64_t free_time[threads][measurements];
+  uint64_t res_alloc[measurements];
+  uint64_t res_free[measurements];
   uint64_t avg[2] = {0, 0};
 
-  for (size_t i = 0; i < iterations; i++) {
+  for (size_t i = 0; i < iterations; ++i) {
     std::thread thread_pool[threads];
-    for (size_t t = 0; t < threads; t++) {
+    for (size_t t = 0; t < threads; ++t) {
       thread_pool[t] =
-          std::thread(benchmark::bulk_worker, allocations, it[i][t]);
+          std::thread(benchmark::bulk_worker, t, measurements, granularity,
+                      alloc_time[t] + 0, free_time[t] + 0);
     }
 
-    for (size_t t = 0; t < threads; t++) {
+    for (size_t t = 0; t < threads; ++t) {
       thread_pool[t].join();
-      (*output) << "[" << i << "][" << t << "] " << it[i][t][0] << ","
-                << it[i][t][1] << "\n";
-      avg[0] += it[i][t][0];
-      avg[1] += it[i][t][1];
+      if (i == 0 && t == 0) {
+        for (size_t m = 0; m < measurements; ++m) {
+          res_alloc[m] = alloc_time[t][m];
+          res_free[m] = free_time[t][m];
+        }
+      } else {
+        for (size_t m = 0; m < measurements; ++m) {
+          res_alloc[m] += alloc_time[t][m];
+          res_free[m] += free_time[t][m];
+        }
+      }
     }
   }
-
-  (*output) << "per_allocation:   "
-            << avg[0] / iterations / threads / allocations << " Ticks\n";
-  (*output) << "per_deallocation: "
-            << avg[1] / iterations / threads / allocations << " Ticks\n";
-
-  if (fileOutput.is_open()) {
-    fileOutput.close();
+  for (size_t m = 0; m < measurements; ++m) {
+    res_alloc[m] /= iterations * threads * granularity;
+    res_free[m] /= iterations * threads * granularity;
+    std::cout << res_alloc[m];
+    // std::cout << "," << res_free[m];
+    std::cout << std::endl;
   }
 
   return 0;
