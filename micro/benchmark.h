@@ -4,7 +4,12 @@
 #include <cstring>
 #include <iostream>
 
+#define SEED 0
+
 namespace benchmark {
+
+
+
 inline static uint64_t rdtsc(void) {
   union {
     uint64_t val;
@@ -19,26 +24,22 @@ inline static uint64_t rdtsc(void) {
 
 inline static void parse_args(int const argc, char const *const argv[],
                               size_t *measurements, size_t *granularity,
-                              size_t *iterations, size_t *threads) {
+                              size_t *threads) {
   for (int i = 1; i < argc; ++i) {
     if (strcmp(argv[i], "-m") == 0 && i + 1 < argc) {
       *measurements = std::strtoul(argv[++i], nullptr, 10);
     } else if (strcmp(argv[i], "-g") == 0 && i + 1 < argc) {
       *granularity = std::strtoul(argv[++i], nullptr, 10);
-    } else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
-      *iterations = std::strtoul(argv[++i], nullptr, 10);
     } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
       *threads = std::strtoul(argv[++i], nullptr, 10);
     } else {
       std::cerr << "Usage: " << argv[0]
-                << " [-m measurements] [-g granularity] [-i iterations] [-t "
-                   "threads]\n";
+                << " [-m measurements] [-g granularity][-t threads]\n";
       exit(1);
     }
   }
   std::cout << "measurements " << *measurements << "\n";
   std::cout << "granularity " << *granularity << "\n";
-  std::cout << "iterations " << *iterations << "\n";
   std::cout << "threads    " << *threads << "\n";
 }
 

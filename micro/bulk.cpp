@@ -48,11 +48,11 @@ void bulk_worker(unsigned core_id, size_t const measurements,
 int main(int argc, char *argv[]) {
   size_t measurements = 4096;
   size_t granularity = 128;
-  size_t iterations = 10;
   size_t threads = 1;
-  benchmark::parse_args(argc, argv, &measurements, &granularity, &iterations,
-                        &threads);
-  std::cout << "Allocation|Cycles\n";
+  benchmark::parse_args(argc, argv, &measurements, &granularity, &threads);
+  std::cout << "xlabel: Allocations\n";
+  std::cout << "ylabel: Avg. CPU Cycles\n";
+  std::cout << "out:\n";
 
   uint64_t alloc_time[threads][measurements];
   uint64_t free_time[threads][measurements];
@@ -60,32 +60,31 @@ int main(int argc, char *argv[]) {
   uint64_t res_free[measurements];
   uint64_t avg[2] = {0, 0};
 
-  for (size_t i = 0; i < iterations; ++i) {
-    std::thread thread_pool[threads];
-    for (size_t t = 0; t < threads; ++t) {
-      thread_pool[t] =
-          std::thread(benchmark::bulk_worker, t, measurements, granularity,
-                      alloc_time[t] + 0, free_time[t] + 0);
-    }
+  std::thread thread_pool[threads];
+  for (size_t t = 0; t < threads; ++t) {
+    thread_pool[t] =
+        std::thread(benchmark::bulk_worker, t, measurements, granularity,
+                    alloc_time[t] + 0, free_time[t] + 0);
+  }
 
-    for (size_t t = 0; t < threads; ++t) {
-      thread_pool[t].join();
-      if (i == 0 && t == 0) {
-        for (size_t m = 0; m < measurements; ++m) {
-          res_alloc[m] = alloc_time[t][m];
-          res_free[m] = free_time[t][m];
-        }
-      } else {
-        for (size_t m = 0; m < measurements; ++m) {
-          res_alloc[m] += alloc_time[t][m];
-          res_free[m] += free_time[t][m];
-        }
+  for (size_t t = 0; t < threads; ++t) {
+    thread_pool[t].join();
+    if (t == 0) {
+      for (size_t m = 0; m < measurements; ++m) {
+        res_alloc[m] = alloc_time[t][m];
+        res_free[m] = free_time[t][m];
+      }
+    } else {
+      for (size_t m = 0; m < measurements; ++m) {
+        res_alloc[m] += alloc_time[t][m];
+        res_free[m] += free_time[t][m];
       }
     }
   }
+
   for (size_t m = 0; m < measurements; ++m) {
-    res_alloc[m] /= iterations * threads * granularity;
-    res_free[m] /= iterations * threads * granularity;
+    res_alloc[m] /= threads * granularity;
+    res_free[m] /= threads * granularity;
     std::cout << res_alloc[m];
     // std::cout << "," << res_free[m];
     std::cout << std::endl;
