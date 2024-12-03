@@ -1,122 +1,136 @@
 #include "benchmark.h"
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <fstream>
-#include <iostream>
-#include <ostream>
-#include <osv/pagealloc.hh>
-#include <thread>
-
-#define PART_REALLOCATIONS 5
-#define ITER_REALLOCATION 100
+#include <barrier>
+#include <unordered_set>
+#include <vector>
 
 namespace benchmark {
 
 // Alloc and free pages at random
-void random_worker(const size_t allocations, void *const pages, uint64_t *res) {
-  uint64_t start_free = rdtsc();
-  for (size_t i = 0; i < allocations / 10; i++) {
-    void *page = memory::physically_alloc_page();
-    memory::physically_free_page(page);
-  }
-  uint64_t end_free = rdtsc();
+void random_worker(unsigned core_id, std::vector<void *> &pages,
+                   std::vector<std::vector<uint64_t>> &to_free,
+                   std::vector<uint64_t> &alloc_time,
+                   std::vector<uint64_t> &free_time,
+                   std::barrier<> &measurement_barrier) {
+  stick_this_thread_to_core(core_id);
+  uint64_t start;
+  uint64_t end;
 
-  *res = end_free - start_free;
+  for (size_t i = 0; i < to_free.size(); ++i) {
+    start = rdtsc();
+    for (size_t j = 0; j < to_free[0].size(); ++j) {
+      free_page(pages[to_free[i][j]]);
+    }
+    end = rdtsc();
+    free_time[i] = end - start;
+
+    start = rdtsc();
+    for (size_t j = 0; j < to_free[0].size(); ++j) {
+      pages[to_free[i][j]] = alloc_page();
+    }
+    end = rdtsc();
+    alloc_time[i] = end - start;
+
+    // Measurement rounds need to be synced to avoid double frees
+    measurement_barrier.arrive_and_wait();
+  }
 }
 
 } // namespace benchmark
 
-// allocate operations*thread pages before
-void populate_pages(u64 const page_len, void **const pages) {
-  for (size_t k = 0; k < page_len; k++) {
-    pages[k] = memory::physically_alloc_page();
+// Allocate pages for initial setup
+void populate_pages(std::vector<void *> &pages) {
+  for (auto &page : pages) {
+    page = malloc(4096);
+    if (!page) {
+      std::exit(EXIT_FAILURE);
+    }
   }
 }
 
-// deterministically determine which pages to free
-void populate_to_free(size_t const free_len, u64 const page_len, u64 *seed,
-                      u64 *const to_free) {
-  for (size_t i = 0; i < free_len; i++) {
-    u64 entry = nanorand_random_range(seed, 0, page_len);
-    for (size_t k = 0; k < i; k++) {
-      if (to_free[k] == entry)
-        return populate_to_free(free_len - i, page_len, seed, to_free + i);
+// Deterministically determine which pages to free
+void populate_to_free(std::vector<std::vector<std::vector<uint64_t>>> &to_free,
+                      size_t threads, size_t measurements, size_t granularity,
+                      size_t pages_allocated, uint64_t *seed) {
+  for (auto &t : to_free) {
+    t.resize(measurements);
+    for (auto &m : t) {
+      m.resize(granularity);
     }
-    to_free[i] = entry;
+  }
+  for (size_t m{0}; m < measurements; ++m) {
+    std::unordered_set<size_t> pool;
+    size_t t = 0;
+    size_t g = 0;
+    while (pool.size() < granularity * threads) {
+      uint64_t index = nanorand_random_range(seed, 0, pages_allocated);
+      if (pool.insert(index).second) {
+        to_free[t][m][g] = index;
+        if (++g >= granularity) {
+          g = 0;
+          ++t;
+        }
+      }
+    }
   }
 }
 
 int main(int argc, char *argv[]) {
-  size_t operations = 50000;
-  size_t iterations = 10;
-  size_t threads = 1;
-  u64 seed = 5;
-  std::ostream *output = &std::cout; // Default to stdout
-  std::ofstream fileOutput;
+  size_t measurements{4096};
+  size_t granularity{128};
+  size_t threads{1};
+  uint64_t seed{SEED};
+  benchmark::parse_args(argc, argv, &measurements, &granularity, &threads);
 
-  for (int i = 1; i < argc; ++i) {
-    if (strcmp(argv[i], "-a") == 0 && i + 1 < argc) {
-      operations = std::strtoul(argv[++i], nullptr, 10);
-    } else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
-      iterations = std::strtoul(argv[++i], nullptr, 10);
-    } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
-      threads = std::strtoul(argv[++i], nullptr, 10);
-    } else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
-      fileOutput.open(argv[++i]);
-      if (!fileOutput.is_open()) {
-        std::cerr << "Error: Unable to open file " << argv[i]
-                  << " for writing.\n";
-        return 1;
-      }
-      output = &fileOutput; // Redirect output to the file
-    } else {
-      std::cerr << "Usage: " << argv[0]
-                << " [-a allocations] [-i iterations] [-t threads] [-o "
-                   "output_file]\n";
-      return 1;
-    }
+  std::cout << "xlabel: Rounds of " << granularity
+            << " frees and allocations\n";
+  std::cout << "ylabel: Avg. CPU Cycles\n";
+  std::cout << "out:\n";
+
+  uint64_t pages_allocated = RANDOM_MEM_FACTOR * granularity;
+
+  std::vector<void *> pages(pages_allocated, nullptr);
+  std::vector<std::vector<std::vector<uint64_t>>> to_free(threads);
+
+  populate_pages(pages);
+  populate_to_free(to_free, threads, measurements, granularity, pages_allocated,
+                   &seed);
+
+  std::vector<std::thread> thread_pool(threads);
+  std::vector<std::vector<uint64_t>> alloc_time(
+      threads, std::vector<uint64_t>(measurements));
+  std::vector<std::vector<uint64_t>> free_time(
+      threads, std::vector<uint64_t>(measurements));
+
+  std::barrier measurement_barrier(threads);
+
+  for (size_t i = 0; i < threads; ++i) {
+    thread_pool[i] =
+        std::thread(benchmark::random_worker, i, std::ref(pages),
+                    std::ref(to_free[i]), std::ref(alloc_time[i]),
+                    std::ref(free_time[i]), std::ref(measurement_barrier));
   }
 
-  (*output) << "operations " << operations << "\n";
-  (*output) << "threads    " << threads << "\n";
-  (*output) << "iterations " << iterations << "\n";
-  (*output) << "[iteration][thread] ticks ticks\n";
-
-  uint64_t it[iterations][threads];
-  uint64_t avg = 0;
-
-  u64 const page_len = operations * threads;
-  u64 const free_len = page_len / PART_REALLOCATIONS;
-
-  void *pages[page_len];
-  u64 to_free[free_len];
-
-  for (size_t i = 0; i < iterations; i++) {
-    std::thread thread_pool[threads];
-    populate_pages(page_len, pages);
-    populate_to_free(free_len, page_len, &seed, to_free);
-    for (size_t t = 0; t < threads; t++) {
-      thread_pool[t] = std::thread(benchmark::random_worker, operations,
-                                   pages + t, it[i] + t);
-    }
-    // free operations*threads pages after
-    for (size_t k = 0; k < operations * threads; k++) {
-      memory::physically_free_page(pages[k]);
-    }
-
-    for (size_t t = 0; t < threads; t++) {
-      thread_pool[t].join();
-      (*output) << "[" << i << "][" << t << "] " << it[i][t] << std::endl;
-      avg += it[i][t];
-    }
+  for (auto &thread : thread_pool) {
+    thread.join();
   }
 
-  (*output) << "per_operation:   " << avg / iterations / threads / operations
-            << " Ticks\n";
+  for (size_t m = 0; m < measurements; ++m) {
+    uint64_t res_alloc = 0;
+    uint64_t res_free = 0;
+    for (size_t t = 0; t < threads; ++t) {
+      res_alloc += alloc_time[t][m];
+      res_free += free_time[t][m];
+    }
+    res_alloc /= threads * granularity;
+    res_free /= threads * granularity;
+    std::cout << res_alloc;
+    // std::cout << "," << res_free;
+    std::cout << std::endl;
+  }
 
-  if (fileOutput.is_open()) {
-    fileOutput.close();
+  for (auto page : pages) {
+    if (page)
+      benchmark::free_page(page);
   }
 
   return 0;

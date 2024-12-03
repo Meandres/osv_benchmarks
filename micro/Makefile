@@ -1,12 +1,17 @@
-.PHONY: micro all
+.PHONY: micro all clean
 module: micro
 
-TARGETS = bulk repeat random
+TARGETS = bulk random repeat
+
+CXXFLAGS = -std=c++20
 
 all: micro
 
 micro: $(TARGETS)
 
 %: %.cpp
-	$(CXX) -o $@ $<
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+clean:
+	rm -f $(TARGETS)
 

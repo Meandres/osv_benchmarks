@@ -1,14 +1,16 @@
+#pragma once
+
 #include "nanorand.h"
-#include <cstddef>
-#include <cstdlib>
 #include <cstring>
 #include <iostream>
 
 #define SEED 0
+#define RANDOM_MEM_FACTOR 100
 
 namespace benchmark {
 
-
+inline static void *alloc_page() { return malloc(4096); }
+inline static void free_page(void *ptr) { free(ptr); }
 
 inline static uint64_t rdtsc(void) {
   union {
