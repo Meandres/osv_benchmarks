@@ -40,7 +40,7 @@ void random_worker(unsigned core_id, std::vector<void *> &pages,
 // Allocate pages for initial setup
 void populate_pages(std::vector<void *> &pages) {
   for (auto &page : pages) {
-    page = malloc(4096);
+    page = benchmark::alloc_page();
     if (!page) {
       std::exit(EXIT_FAILURE);
     }

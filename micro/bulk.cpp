@@ -22,7 +22,7 @@ void bulk_worker(unsigned core_id, size_t const measurements,
   for (size_t i = 0; i < measurements; ++i) {
     start = rdtsc();
     for (size_t j = 0; j < granularity; ++j) {
-      void *page = malloc(4096);
+      void *page = alloc_page();
       if (!page) {
         std::cerr << "Memory allocation failed at iteration " << i << "\n";
         exit(1);
@@ -36,7 +36,7 @@ void bulk_worker(unsigned core_id, size_t const measurements,
   for (size_t i = 0; i < measurements; ++i) {
     start = rdtsc();
     for (size_t j = 0; j < granularity; ++j) {
-      free(mem.at(i * granularity + j));
+      free_page(mem.at(i * granularity + j));
     }
     end = rdtsc();
     free_time[i] = end - start;
