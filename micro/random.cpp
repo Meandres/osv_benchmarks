@@ -10,7 +10,8 @@ void random_worker(unsigned core_id, std::vector<void *> &pages,
                    std::vector<std::vector<uint64_t>> &to_free,
                    std::vector<uint64_t> &alloc_time,
                    std::vector<uint64_t> &free_time,
-                   std::barrier<> &measurement_barrier) {
+                   std::barrier<> &measurement_barrier,
+                   size_t size) {
   stick_this_thread_to_core(core_id);
   uint64_t start;
   uint64_t end;
@@ -25,7 +26,7 @@ void random_worker(unsigned core_id, std::vector<void *> &pages,
 
     start = rdtsc();
     for (size_t j = 0; j < to_free[0].size(); ++j) {
-      pages[to_free[i][j]] = alloc_page();
+      pages[to_free[i][j]] = malloc(size);
     }
     end = rdtsc();
     alloc_time[i] = end - start;
@@ -38,9 +39,9 @@ void random_worker(unsigned core_id, std::vector<void *> &pages,
 } // namespace benchmark
 
 // Allocate pages for initial setup
-void populate_pages(std::vector<void *> &pages) {
+void populate_pages(std::vector<void *> &pages, size_t size) {
   for (auto &page : pages) {
-    page = benchmark::alloc_page();
+    page = malloc(size);
     if (!page) {
       std::exit(EXIT_FAILURE);
     }
@@ -78,8 +79,9 @@ int main(int argc, char *argv[]) {
   size_t measurements{4096};
   size_t granularity{128};
   size_t threads{1};
+  size_t size{4096};
   uint64_t seed{SEED};
-  benchmark::parse_args(argc, argv, &measurements, &granularity, &threads);
+  benchmark::parse_args(argc, argv, &measurements, &granularity, &threads, &size);
 
   std::cout << "xlabel: Rounds of " << granularity
             << " frees and allocations\n";
@@ -91,7 +93,7 @@ int main(int argc, char *argv[]) {
   std::vector<void *> pages(pages_allocated, nullptr);
   std::vector<std::vector<std::vector<uint64_t>>> to_free(threads);
 
-  populate_pages(pages);
+  populate_pages(pages, size);
   populate_to_free(to_free, threads, measurements, granularity, pages_allocated,
                    &seed);
 
@@ -107,7 +109,7 @@ int main(int argc, char *argv[]) {
     thread_pool[i] =
         std::thread(benchmark::random_worker, i, std::ref(pages),
                     std::ref(to_free[i]), std::ref(alloc_time[i]),
-                    std::ref(free_time[i]), std::ref(measurement_barrier));
+                    std::ref(free_time[i]), std::ref(measurement_barrier), size);
   }
 
   for (auto &thread : thread_pool) {
