@@ -3,6 +3,7 @@
 #include "nanorand.h"
 #include <cstring>
 #include <iostream>
+#include <chrono>
 
 #define SEED 0
 #define RANDOM_MEM_FACTOR 100
@@ -13,15 +14,9 @@ inline static void *alloc_page() { return malloc(4096); }
 inline static void free_page(void *ptr) { free(ptr); }
 
 inline static uint64_t rdtsc(void) {
-  union {
-    uint64_t val;
-    struct {
-      uint32_t lo;
-      uint32_t hi;
-    };
-  } tsc;
-  asm volatile("rdtsc" : "=a"(tsc.lo), "=d"(tsc.hi));
-  return tsc.val;
+  std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
+  auto duration = now.time_since_epoch();
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
 }
 
 inline static void parse_args(int const argc, char const *const argv[],
