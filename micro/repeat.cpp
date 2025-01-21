@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
   size_t granularity = 128;
   size_t threads = 1;
   benchmark::parse_args(argc, argv, &measurements, &granularity, &threads);
-  std::cout << "xlabel: Allocations + Frees\n";
+  std::cout << "xlabel: Allocations + Deallocations\n";
   std::cout << "ylabel: Avg. CPU Cycles\n";
   std::cout << "out:\n";
 

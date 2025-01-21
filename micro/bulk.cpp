@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
     res_alloc[m] /= threads * granularity;
     res_free[m] /= threads * granularity;
     std::cout << res_alloc[m];
-    // std::cout << "," << res_free[m];
+    // std::cout << res_free[m];
     std::cout << std::endl;
   }
 
