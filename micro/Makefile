@@ -1,7 +1,7 @@
 .PHONY: micro all clean
 module: micro
 
-TARGETS = bulk random repeat mmap_anon
+TARGETS = bulk random repeat mmap
 
 CXXFLAGS = -std=c++20 -g
 

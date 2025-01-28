@@ -19,6 +19,8 @@ void random_worker(unsigned core_id, std::vector<void *> &pages,
   for (size_t i = 0; i < to_free.size(); ++i) {
     start = rdtsc();
     for (size_t j = 0; j < to_free[0].size(); ++j) {
+      void * v = pages[to_free[i][j]];
+      *reinterpret_cast<uint64_t *>(v) = 20;
       free_page(pages[to_free[i][j]]);
     }
     end = rdtsc();
