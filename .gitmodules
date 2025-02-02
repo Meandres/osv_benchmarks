@@ -7,3 +7,6 @@
 [submodule "sqlite-bench"]
 	path = sqlite-bench
 	url = https://github.com/ukontainer/sqlite-bench.git
+[submodule "osv_malloc_microbench"]
+	path = osv_malloc_microbench
+	url = https://github.com/Martin-Lndbl/osv_malloc_microbench.git
