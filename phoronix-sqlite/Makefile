@@ -4,6 +4,7 @@ ARCHIVE=sqlite-330-for-speedtest.tar.gz
 URL=http://www.phoronix-test-suite.com/benchmark-files/$(ARCHIVE)
 
 .PHONY: all clean
+module: all
 
 all: $(SQLITE_DIR)
 	@echo "Running configure..."
