@@ -1119,20 +1119,36 @@ static int runMain(int argc, char **argv){
 
 
 int main(int argc, char **argv){
-  if( argc<3 ) showHelp();
-  if( strcmp(argv[1],"init")==0 ){
-    return initMain(argc, argv);
+
+  const char *commands[][6] = {
+        {"kvtest", "init", "test1.db", "--count", "100k"},
+        {"kvtest", "stat", "test1.db"},
+        {"kvtest", "export", "test1.db", "test1.dir"},
+        {"kvtest", "export", "test1.db", "test1.tree", "--tree"},
+        {"kvtest", "run", "test1.db", "--count", "100k", "--blob-api"},
+        {"kvtest", "run", "test1.dir", "--count", "100k", "--blob-api"},
+        {"kvtest", "run", "test1.tree", "--count", "100k", "--blob-api"},
+        {"kvtest", "run", "test1.db", "--count", "100k", "--update"},
+        {"kvtest", "run", "test1.dir", "--count", "100k", "--update"},
+        {"kvtest", "run", "test1.tree", "--count", "100k", "--update"}
+    };
+
+  int counts[] = { 5, 3, 4, 5, 6, 6, 6, 6, 6, 6 };
+  for(unsigned i = 0; i < 10; i++){
+      char ** av = (char **) commands[i];
+      if(strcmp(commands[i][1],"init")==0 ){
+        initMain(counts[i], av);
+      }
+      else if(strcmp(commands[i][1],"export")==0 ){
+        exportMain(counts[i], av);
+      }
+      else if(strcmp(commands[i][1],"run")==0 ){
+        runMain(counts[i], av);
+      }
+      else if(strcmp(commands[i][1],"stat")==0 ){
+        statMain(counts[i], av);
+      }
   }
-  if( strcmp(argv[1],"export")==0 ){
-    return exportMain(argc, argv);
-  }
-  if( strcmp(argv[1],"run")==0 ){
-    return runMain(argc, argv);
-  }
-  if( strcmp(argv[1],"stat")==0 ){
-    return statMain(argc, argv);
-  }
-  showHelp();
   return 0;
 }
 
