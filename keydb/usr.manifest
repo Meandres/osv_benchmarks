@@ -1,0 +1,2 @@
+/keydb-benchmark: ${MODULE_DIR}/KeyDB/src/keydb-benchmark
+/keydb-server: ${MODULE_DIR}/KeyDB/src/keydb-server
