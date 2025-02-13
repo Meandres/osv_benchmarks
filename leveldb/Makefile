@@ -8,7 +8,7 @@ leveldb:
 	git clone --depth 1 --recurse-submodules --single-branch -b $(VERSION) https://github.com/google/leveldb
 	# patch -p1 < patches/fix_root_dir.patch
 
-leveldb/build/db_bench: leveldb
+leveldb/build/db_bench: leveldb FORCE
 	mkdir -p leveldb/build; cd leveldb/build; cmake -DCMAKE_BUILD_TYPE=Release .. && cmake --build .
 	# patchelf --set-rpath /ddb/src/ build/release/benchmark/benchmark_runner
 
@@ -17,3 +17,5 @@ clean:
 
 distclean:
 	rm -rf leveldb
+
+FORCE:
