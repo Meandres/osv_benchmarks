@@ -10,3 +10,6 @@
 [submodule "osv_malloc_microbench"]
 	path = osv_malloc_microbench
 	url = https://github.com/Martin-Lndbl/osv_malloc_microbench.git
+[submodule "libvmcache"]
+	path = libvmcache
+	url = https://github.com/Martin-Lndbl/libvmcache.git
