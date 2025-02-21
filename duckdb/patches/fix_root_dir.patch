@@ -1,7 +1,7 @@
-diff --git a/duckdb/benchmark/CMakeLists.txt b/duckdb/benchmark/CMakeLists.txt
+diff --git a/benchmark/CMakeLists.txt b/benchmark/CMakeLists.txt
 index 6eda1ef..859d6d9 100644
---- a/duckdb/benchmark/CMakeLists.txt
-+++ b/duckdb/benchmark/CMakeLists.txt
+--- a/benchmark/CMakeLists.txt
++++ b/benchmark/CMakeLists.txt
 @@ -11,7 +11,7 @@ if(${_index} GREATER -1)
  endif()
 
