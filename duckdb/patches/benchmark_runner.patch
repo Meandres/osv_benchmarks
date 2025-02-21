@@ -19,7 +19,7 @@ index 6eda1ef..759175e 100644
 +  target_link_libraries(benchmarks tpce)
  endif()
 diff --git a/benchmark/benchmark_runner.cpp b/benchmark/benchmark_runner.cpp
-index 65f5b9a..dbb92bc 100644
+index 65f5b9a..3d95a8f 100644
 --- a/benchmark/benchmark_runner.cpp
 +++ b/benchmark/benchmark_runner.cpp
 @@ -21,7 +21,8 @@ void BenchmarkRunner::RegisterBenchmark(Benchmark *benchmark) {
@@ -40,16 +40,16 @@ index 65f5b9a..dbb92bc 100644
  	for (size_t i = 0; i < nruns + 1; i++) {
  		bool hotrun = i > 0;
  		if (hotrun) {
-@@ -141,6 +143,9 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
- 
- 		is_active = false;
- 		interrupt_thread.join();
+@@ -161,6 +163,9 @@ void BenchmarkRunner::RunBenchmark(Benchmark *benchmark) {
+ 			}
+ 		}
+ 		benchmark->Cleanup(state.get());
 +		if (i < nruns) {
 +			std::this_thread::sleep_for(std::chrono::milliseconds(idle_time));
 +		}
- 		if (hotrun) {
- 			LogOutput(benchmark->GetLogOutput(state.get()));
- 			if (timeout) {
+ 	}
+ 	benchmark->Finalize();
+ }
 @@ -248,6 +253,24 @@ void parse_arguments(const int arg_counter, char const *const *arg_values) {
  		} else if (arg == "--detailed-profile") {
  			// write info of benchmark
