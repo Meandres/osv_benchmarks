@@ -9,8 +9,11 @@ DUCKDB_BUILD = duckdb/build/release/
 
 module: benchmark_runner
 
-benchmark_runner: runner.cpp duckdb/duckdb
-	$(CXX) $(CXXFLAGS) runner.cpp -o runner -Lduckdb/build/release/benchmark -lbenchmarks -Iduckdb/src/include/ -Wl,-rpath,duckdb/build/release/benchmark
+benchmark_runner: runner.cpp duckdb/duckdb libvmcache.a
+	$(CXX) $(CXXFLAGS) runner.cpp -o runner libvmcache.a -Lduckdb/build/release/benchmark -lbenchmarks -Iduckdb/src/include/ -Wl,-rpath,duckdb/build/release/benchmark -laio
+
+libvmcache.a:
+	cd ../libvmcache; make -f Makefile.static; cp libvmcache.a ../duckdb/
 
 duckdb/duckdb: duckdb
 	cd duckdb; BUILD_BENCHMARK=1 BUILD_TPCH=1 $(MAKE)
