@@ -1,0 +1,3 @@
+/fio: ${MODULE_DIR}/fio/fio
+/ioengine_nvme: ${MODULE_DIR}/ioengine_nvme
+/osv_nvme_test.fio: ${MODULE_DIR}/../../../microbenchs/osv_nvme_test.fio

@@ -11,3 +11,6 @@
 	path = vmcache
 	url = http://github.com/Meandres/vmcache.git
 	branch = osv
+[submodule "duckdb/duckdb"]
+	path = duckdb/duckdb
+	url = git@github.com:Meandres/duckdb.git
