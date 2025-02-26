@@ -1,0 +1,26 @@
+From 1b2f192eb74461ec4d8a227d09e5a6c337072869 Mon Sep 17 00:00:00 2001
+From: Fotis Xenakis <foxen@windowslive.com>
+Date: Fri, 3 Jul 2020 15:14:06 +0300
+Subject: [PATCH] configure: disable POSIX pshared attribute
+
+Signed-off-by: Fotis Xenakis <foxen@windowslive.com>
+---
+ configure | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/configure b/configure
+index d2ca8934..c1aa76a4 100755
+--- a/configure
++++ b/configure
+@@ -754,6 +754,8 @@ EOF
+ if compile_prog "" "$LIBS" "posix_pshared" ; then
+   posix_pshared=yes
+ fi
++# Disable explicitly
++posix_pshared="no"
+ print_config "POSIX pshared support" "$posix_pshared"
+ 
+ ##########################################
+-- 
+2.30.1
+

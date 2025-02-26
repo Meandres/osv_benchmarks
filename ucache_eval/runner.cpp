@@ -1,5 +1,5 @@
-#include "duckdb/benchmark/include//benchmark_runner.hpp"
-#include "../libvmcache/vmcache.hpp"
+#include "benchmark/include//benchmark_runner.hpp"
+#include "vmcache.hpp"
 
 int main()
 {
