@@ -3,3 +3,5 @@
 /benchmark/tpch/sf1/**: ${MODULE_DIR}/duckdb/benchmark/tpch/sf1/**
 /extension/tpch/dbgen/queries/**: ${MODULE_DIR}/duckdb/extension/tpch/dbgen/queries/**
 /extension/tpch/dbgen/answers/sf1/**: ${MODULE_DIR}/duckdb/extension/tpch/dbgen/answers/sf1/**
+
+/duckdb: ${MODULE_DIR}/duckdb/build/release/duckdb
