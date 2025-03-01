@@ -10,3 +10,4 @@
 
 ## Misc
 if linking errors when running: add `__isoc23_strtol = strtol;` to `libc/aliases.ld`
+fyi: `libc/aliases.ld` is not tracked by the Makefile. You have to `./scripts/build clean`
