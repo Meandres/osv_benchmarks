@@ -5,3 +5,4 @@
 /extension/tpch/dbgen/answers/sf1/**: ${MODULE_DIR}/duckdb/extension/tpch/dbgen/answers/sf1/**
 
 /duckdb: ${MODULE_DIR}/duckdb/build/release/duckdb
+/tpch.sql: ${MODULE_DIR}/tpch.sql
