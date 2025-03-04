@@ -10,3 +10,4 @@ PRAGMA tpch(12);
 PRAGMA tpch(12);
 PRAGMA tpch(12);
 PRAGMA tpch(12);
+PRAGMA tpch(12);

@@ -10,3 +10,4 @@ PRAGMA tpch(20);
 PRAGMA tpch(20);
 PRAGMA tpch(20);
 PRAGMA tpch(20);
+PRAGMA tpch(20);

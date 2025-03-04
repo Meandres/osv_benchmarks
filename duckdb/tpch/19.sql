@@ -10,3 +10,4 @@ PRAGMA tpch(19);
 PRAGMA tpch(19);
 PRAGMA tpch(19);
 PRAGMA tpch(19);
+PRAGMA tpch(19);

@@ -10,3 +10,4 @@ PRAGMA tpch(4);
 PRAGMA tpch(4);
 PRAGMA tpch(4);
 PRAGMA tpch(4);
+PRAGMA tpch(4);
