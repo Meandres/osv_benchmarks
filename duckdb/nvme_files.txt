@@ -1,0 +1,8 @@
+customer.parquet 0 1263221720
+lineitem.parquet 2467230 28642582854
+nation.parquet 58409776 2229
+orders.parquet 58409781 6849928203
+part.parquet 71788548 694976573
+partsupp.parquet 73145926 4518494780
+region.parquet 81971112 1052
+supplier.parquet 81971115 80397183
