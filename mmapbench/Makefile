@@ -11,6 +11,7 @@ mmapbench/mmapbench: mmapbench
 
 mmapbench:
 	git clone --depth 1 --recurse-submodules --single-branch $(UPSTREAM)
+	cd mmapbench; patch -p1 < ../patches/nvme.patch
 
 clean:
 	if [ -d mmapbench ]; then cd mmapbench && $(MAKE) clean; fi
