@@ -98,6 +98,15 @@ uint64_t readIObytes() {
   return sum;
 }
 
+int pin_thread_to_core(int core_id) {
+   cpu_set_t cpuset;
+   CPU_ZERO(&cpuset);
+   CPU_SET(core_id, &cpuset);
+
+   pthread_t current_thread = pthread_self();
+   return pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
+}
+
 int main(int argc, char **argv) {
   if (argc < 5) {
     cerr << "dev threads seq hint" << endl;
@@ -121,6 +130,7 @@ int main(int argc, char **argv) {
   vector<thread> t;
   for (unsigned i = 0; i < threads; i++) {
     t.emplace_back([&, i]() {
+      pin_thread_to_core(i);
       atomic<uint64_t> &count = counts[i];
       atomic<uint64_t> &sum = sums[i];
 
