@@ -1,3 +1,6 @@
+// sudo apt install libtbb-dev
+// g++ -O3 -g mmapbench.cpp -o mmapbench -ltbb -pthread
+
 #include <atomic>
 #include <boost/algorithm/string.hpp>
 #include <cassert>
@@ -39,7 +42,6 @@ double gettime() {
 uint64_t readTLBShootdownCount() {
   std::ifstream irq_stats("/proc/interrupts");
   assert(!!irq_stats);
-
   for (std::string line; std::getline(irq_stats, line);) {
     if (line.find("TLB") != std::string::npos) {
       std::vector<std::string> strs;
@@ -59,6 +61,7 @@ uint64_t readTLBShootdownCount() {
 
 uint64_t readIObytesOne() {
   std::ifstream stat("/sys/block/nvme2n1/stat");
+
   assert(!!stat);
 
   for (std::string line; std::getline(stat, line);) {
@@ -67,6 +70,7 @@ uint64_t readIObytesOne() {
     std::stringstream ss(strs[2]);
     uint64_t c;
     ss >> c;
+
     return c * 512;
   }
   return 0;
@@ -74,6 +78,7 @@ uint64_t readIObytesOne() {
 
 uint64_t readIObytes() {
   std::ifstream stat("/proc/diskstats");
+
   assert(!!stat);
 
   uint64_t sum = 0;
@@ -86,6 +91,7 @@ uint64_t readIObytes() {
       std::stringstream ss(strs[6]);
       uint64_t c;
       ss >> c;
+
       sum += c * 512;
     }
   }
@@ -110,7 +116,6 @@ int main(int argc, char **argv) {
 
   std::vector<atomic_uint64_t> counts(threads);
   std::vector<atomic_uint64_t> sums(threads);
-
   atomic<uint64_t> seqScanPos(0);
 
   vector<thread> t;
