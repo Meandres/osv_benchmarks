@@ -33,69 +33,19 @@ using namespace std;
     throw;                                                                     \
   }
 
+int stick_this_thread_to_core(int core_id) {
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(core_id, &cpuset);
+
+  pthread_t current_thread = pthread_self();
+  return pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
+}
+
 double gettime() {
   struct timeval now_tv;
   gettimeofday(&now_tv, NULL);
   return ((double)now_tv.tv_sec) + ((double)now_tv.tv_usec) / 1000000.0;
-}
-
-uint64_t readTLBShootdownCount() {
-  std::ifstream irq_stats("/proc/interrupts");
-  assert(!!irq_stats);
-  for (std::string line; std::getline(irq_stats, line);) {
-    if (line.find("TLB") != std::string::npos) {
-      std::vector<std::string> strs;
-      boost::split(strs, line, boost::is_any_of("\t "));
-      uint64_t count = 0;
-      for (size_t i = 0; i < strs.size(); i++) {
-        std::stringstream ss(strs[i]);
-        uint64_t c;
-        ss >> c;
-        count += c;
-      }
-      return count;
-    }
-  }
-  return 0;
-}
-
-uint64_t readIObytesOne() {
-  std::ifstream stat("/sys/block/nvme2n1/stat");
-
-  assert(!!stat);
-
-  for (std::string line; std::getline(stat, line);) {
-    std::vector<std::string> strs;
-    boost::split(strs, line, boost::is_any_of("\t "), boost::token_compress_on);
-    std::stringstream ss(strs[2]);
-    uint64_t c;
-    ss >> c;
-
-    return c * 512;
-  }
-  return 0;
-}
-
-uint64_t readIObytes() {
-  std::ifstream stat("/proc/diskstats");
-
-  assert(!!stat);
-
-  uint64_t sum = 0;
-  for (std::string line; std::getline(stat, line);) {
-    if (line.find("nvme") != std::string::npos) {
-      std::vector<std::string> strs;
-      boost::split(strs, line, boost::is_any_of("\t "),
-                   boost::token_compress_on);
-
-      std::stringstream ss(strs[6]);
-      uint64_t c;
-      ss >> c;
-
-      sum += c * 512;
-    }
-  }
-  return sum;
 }
 
 int main(int argc, char **argv) {
@@ -107,7 +57,7 @@ int main(int argc, char **argv) {
   unsigned threads = atoi(argv[2]);
   uint64_t fileSize = 2ull * 1024 * 1024 * 1024 * 1024;
 
-  ucache::createCache(64l << 30, 64);
+  ucache::createCache(100l << 30, 64);
   char *p = (char *)ucache::uCacheManager->addVMA(fileSize, 4096);
 
   int hint = 0;
@@ -121,6 +71,7 @@ int main(int argc, char **argv) {
   vector<thread> t;
   for (unsigned i = 0; i < threads; i++) {
     t.emplace_back([&, i]() {
+      stick_this_thread_to_core(i);
       atomic<uint64_t> &count = counts[i];
       atomic<uint64_t> &sum = sums[i];
 
@@ -164,27 +115,23 @@ int main(int argc, char **argv) {
   cout << "dev,seq,hint,threads,time,workGB,tlb,readGB,CPUwork" << endl;
   // TODO
   // auto lastShootdowns = readTLBShootdownCount();
-  // auto lastIObytes = readIObytes();
+  auto lastIObytes = ucache::uCacheManager->readSize.load();
   double start = gettime();
   while (true) {
     sleep(1);
-    // TODO
     // uint64_t shootdowns = readTLBShootdownCount();
-    // uint64_t IObytes = readIObytes();
+    uint64_t IObytes = ucache::uCacheManager->readSize.load();
     uint64_t workCount = 0;
     for (auto &x : counts)
       workCount += x.exchange(0);
     double t = gettime() - start;
     cout << argv[1] << "," << seq << "," << hint << "," << threads << "," << t
          << "," << (workCount * 4096) / (1024.0 * 1024 * 1024)
-         << ","
-         // TODO
-         // << (shootdowns - lastShootdowns) << ","
-         // << (IObytes - lastIObytes) / (1024.0 * 1024 * 1024) << ","
+         << ", 0," // << (shootdowns - lastShootdowns) << ","
+         << (IObytes - lastIObytes) / (1024.0 * 1024 * 1024) << ","
          << cpuWork.exchange(0) << endl;
-    // TODO
     // lastShootdowns = shootdowns;
-    // lastIObytes = IObytes;
+    lastIObytes = IObytes;
   }
 
   return 0;
