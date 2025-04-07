@@ -49,8 +49,8 @@ double gettime() {
 }
 
 int main(int argc, char **argv) {
-  if (argc < 5) {
-    cerr << "dev threads seq hint" << endl;
+  if (argc != 5) {
+    cerr << "dev threads seq pageSize" << endl;
     return 1;
   }
 
@@ -58,22 +58,27 @@ int main(int argc, char **argv) {
   uint64_t fileSize = 2ull * 1024 * 1024 * 1024 * 1024;
 
   ucache::createCache(100l << 30, 64);
-  char *p = (char *)ucache::uCacheManager->addVMA(fileSize, 4096);
+  char *p = (char *)ucache::uCacheManager->addVMA(fileSize, atoi(argv[4]));
 
   int hint = 0;
 
-  int seq = (argc > 3) ? atoi(argv[3]) : 0;
+  int seq = atoi(argv[3]);
 
-  std::vector<atomic_uint64_t> counts(threads);
-  std::vector<atomic_uint64_t> sums(threads);
+  struct atomic_u64_padded{
+    std::atomic<uint64_t> val;
+    char padding[64 - sizeof(std::atomic<uint64_t>)];
+  };
+
+  std::vector<atomic_u64_padded> counts(threads);
+  std::vector<atomic_u64_padded> sums(threads);
   atomic<uint64_t> seqScanPos(0);
 
   vector<thread> t;
   for (unsigned i = 0; i < threads; i++) {
     t.emplace_back([&, i]() {
       stick_this_thread_to_core(i);
-      atomic<uint64_t> &count = counts[i];
-      atomic<uint64_t> &sum = sums[i];
+      atomic<uint64_t> &count = counts[i].val;
+      atomic<uint64_t> &sum = sums[i].val;
 
       count = 0;
       sum = 0;
@@ -113,25 +118,20 @@ int main(int argc, char **argv) {
   });
 
   cout << "dev,seq,hint,threads,time,workGB,tlb,readGB,CPUwork" << endl;
-  // TODO
-  // auto lastShootdowns = readTLBShootdownCount();
-  auto lastIObytes = ucache::uCacheManager->readSize.load();
   double start = gettime();
   while (true) {
     sleep(1);
-    // uint64_t shootdowns = readTLBShootdownCount();
-    uint64_t IObytes = ucache::uCacheManager->readSize.load();
+    uint64_t shootdowns = ucache::uCacheManager->tlbFlush.exchange(0);
+    uint64_t IObytes = ucache::uCacheManager->readSize.exchange(0);
     uint64_t workCount = 0;
     for (auto &x : counts)
-      workCount += x.exchange(0);
+      workCount += x.val.exchange(0);
     double t = gettime() - start;
     cout << argv[1] << "," << seq << "," << hint << "," << threads << "," << t
          << "," << (workCount * 4096) / (1024.0 * 1024 * 1024)
-         << ", 0," // << (shootdowns - lastShootdowns) << ","
-         << (IObytes - lastIObytes) / (1024.0 * 1024 * 1024) << ","
+         << "," << shootdowns << ","
+         << IObytes / (1024.0 * 1024 * 1024) << ","
          << cpuWork.exchange(0) << endl;
-    // lastShootdowns = shootdowns;
-    lastIObytes = IObytes;
   }
 
   return 0;

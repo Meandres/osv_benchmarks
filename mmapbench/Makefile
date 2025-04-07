@@ -10,7 +10,7 @@ LIBS=-ltbb -pthread
 module: mmapbench/mmapbench
 
 mmapbench/mmapbench: mmapbench
-	$(CXX) -shared $(CXXFLAGS) $(OSV_INCLUDES) mmapbench_osv.cpp -o mmapbench_osv.so $(LIBS)
+	$(CXX) -shared $(CXXFLAGS) $(OSV_INCLUDES) mmapbench_osv.cpp -o mmapbench_osv.so
 	cd mmapbench; $(CXX) $(CXXFLAGS) mmapbench.cpp -o mmapbench_linux $(LIBS); mv mmapbench_linux ..
 
 mmapbench:
