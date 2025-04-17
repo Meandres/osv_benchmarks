@@ -1,1 +1,1 @@
-/mmapbench: ${MODULE_DIR}/mmapbench_osv.so
+/mmapbench: ${MODULE_DIR}/mmapbench
