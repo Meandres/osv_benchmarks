@@ -192,7 +192,7 @@ int main(int argc, char **argv) {
     }
   });
 
-  cout << "dev,seq,hint,threads,time,workGB,tlb,readGB,CPUwork" << endl;
+  cout << "dev,seq,hint,pageSize,threads,time,workGB,tlb,readGB,CPUwork" << endl;
   double start = gettime();
   while (true) {
     sleep(1);
@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
     for (auto &x : counts)
       workCount += x.val.exchange(0);
     double ti = gettime() - start;
-    cout << "/none," << mode << ",0," << threads << "," << ti  << "," << (workCount * 4096) / (1024.0 * 1024 * 1024)
+    cout << "/none," << mode << ",0," << page_size << "," << threads << "," << ti  << "," << (workCount * 4096) / (1024.0 * 1024 * 1024)
          << "," << shootdowns << ","
          << IObytes / (1024.0 * 1024 * 1024) << ","
          << cpuWork.exchange(0) << endl;

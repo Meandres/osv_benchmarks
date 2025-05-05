@@ -27,6 +27,7 @@
 #include <bitset>
 
 #include <osv/ucache.hh>
+#include <osv/mempool.hh>
 #include <osv/sched.hh>
 #include <cstring>
 __thread uint16_t workerThreadId __attribute__ ((tls_model ("initial-exec"))) = 0;
@@ -162,7 +163,13 @@ struct BufferManager {
    Page* fixS(PID pid);
    void unfixS(PID pid);
 
-   bool isValidPtr(void* page) { bool res = (page >= virtMem) && (page < (virtMem + virtSize + 16)); if(!res) printf("page: %p\n", page); return res; }
+   bool isValidPtr(void* page) { 
+      bool res = ((page >= virtMem) && (page < (virtMem + virtSize + 16))); 
+      if(!res) { 
+         printf("page: %p\n", page);
+      } 
+      return res; 
+   }
    bool isValidPID(PID pid) { return pid >= 0 && pid < virtCount; }
    PID toPID(void* page) { ucache::assert_crash(isValidPtr(page)); return reinterpret_cast<Page*>(page) - virtMem; }
    Page* toPtr(PID pid) { ucache::assert_crash(isValidPID(pid)); return virtMem + pid; }
@@ -444,12 +451,31 @@ u64 envOr(const char* env, u64 value) {
 bool vmcache_isDirty(ucache::Buffer* buf){
    return bm.virtMem[bm.toPID(buf->baseVirt)].dirty;
 }
-void vmcache_clearDirty(ucache::Buffer* buf){
-   bm.virtMem[bm.toPID(buf->baseVirt)].dirty = false;
-}
+
+void vmcache_clearDirty(ucache::Buffer* buf){}
 
 bool vmcache_canBeEvicted(ucache::Buffer* buf){
-   return PageState::getState(bm.getPageState(bm.toPID(buf->baseVirt)).stateAndVersion) == PageState::Marked;
+   PID pid = bm.toPID(buf->baseVirt);
+   PageState& ps = bm.getPageState(pid);
+   u64 v = ps.stateAndVersion;
+   if(PageState::getState(v) == PageState::Marked){ // clean candidate
+      if(ps.tryLockX(v))
+         return true;
+      else
+         return false;
+   }
+   if(bm.virtMem[bm.toPID(buf->baseVirt)].dirty){ // has been written
+      bm.virtMem[bm.toPID(buf->baseVirt)].dirty = false;
+      if((PageState::getState(v) == 1) && ps.stateAndVersion.compare_exchange_weak(v, PageState::sameVersion(v, PageState::Locked))){
+         return true;
+      }else{
+         ps.unlockS();
+      }
+   }
+   if(PageState::getState(v) == PageState::Locked){
+      return true;
+   }
+   return false;
 }
 
 void vmcache_evict_policy(ucache::VMA* vma, u64 nbToEvict, ucache::EvictList el){
@@ -457,44 +483,43 @@ void vmcache_evict_policy(ucache::VMA* vma, u64 nbToEvict, ucache::EvictList el)
       u64 stillToFind = nbToEvict - el.size();
       u64 id = vma->residentSet->getNextBatch(stillToFind);
       u64 upperBound = id + stillToFind;
-      ucache::ResidentSet::Entry entry;
       for(u64 i = 0; i < stillToFind; i++){
-         vma->residentSet->getNextValidEntry(&id, &entry, upperBound);
-         if(id == upperBound)
-            break;
-         ucache::Buffer* buf = entry.buf;
-         ucache::assert_crash(buf != NULL);
+         u64 index = (id+i) & vma->residentSet->mask;
+         ucache::Buffer* buf = vma->residentSet->getEntry(index);
+         if(buf == NULL){
+            continue;
+         }
+         ucache::assert_crash(vma->isValidPtr(buf->baseVirt));
          ucache::BufferSnapshot* bs;
-         bs = new ucache::BufferSnapshot(bm.ucache_vma->nbPages);
-         buf->updateSnapshot(bs);
          PID pid = bm.toPID(buf->baseVirt);
          PageState& ps = bm.getPageState(pid);
          u64 v = ps.stateAndVersion;
          switch (PageState::getState(v)) {
             case PageState::Marked:
-               if (ps.tryLockX(v)){
+               bs = new ucache::BufferSnapshot(bm.ucache_vma->nbPages);
+               buf->updateSnapshot(bs);
+               if(bm.virtMem[pid].dirty){
+                  if(ps.tryLockS(v)){
+                     if(!vma->addEvictionCandidate(buf, bs, el)){
+                        bm.getPageState(pid).unlockS();
+                        delete bs;
+                     }
+                  }
+               }else{
                   if(!vma->addEvictionCandidate(buf, bs, el)){
                      bm.getPageState(pid).unlockS();
                      delete bs;
                   }
-               }else{
-                  delete bs;
                }
                break;
             case PageState::Unlocked:
                ps.tryMark(v);
-               delete bs;
                break;
             default:
-               delete bs;
                break; // skip
          };
       }
    }
-}
-
-void vmcache_release_cached(ucache::Buffer* buf){
-   bm.getPageState(bm.toPID(buf->baseVirt)).unlockX();
 }
 
 void vmcache_release_evicted(ucache::Buffer* buf){
@@ -515,8 +540,8 @@ BufferManager::BufferManager(){
    ucache_vma->callback_implems.isDirty_implem = vmcache_isDirty;
    ucache_vma->callback_implems.clearDirty_implem = vmcache_clearDirty;
    ucache_vma->callback_implems.evict_pol = vmcache_evict_policy;
+   ucache_vma->callback_implems.canBeEvicted_implem = vmcache_canBeEvicted;
    ucache_vma->callback_implems.post_EvictingToUncached_callback_implem = vmcache_release_evicted;
-   ucache_vma->callback_implems.post_EvictingToCached_callback_implem = vmcache_release_cached;
 
    pageState = (PageState*)allocHuge(this->virtCount * sizeof(PageState));
    for (u64 i=0; i<virtCount; i++)
@@ -1500,7 +1525,7 @@ int main(int argc, char** argv) {
          float wmb = (ucache::uCacheManager->writeSize.exchange(0))/(1024.0*1024);
          u64 prog = txProgress.exchange(0);
          u64 pf = ucache::uCacheManager->pageFaults.exchange(0);
-         cout << cnt++ << "," << prog << "," << rmb << "," << wmb << "," << systemName << "," << nthreads << "," << n << "," << (isRndread?"rndread":"tpcc") << "," << ucache::uCacheManager->batch << "," << pf << endl;
+         cout << cnt++ << "," << prog << "," << rmb << "," << wmb << "," << systemName << "," << nthreads << "," << n << "," << (isRndread?"rndread":"tpcc") << "," << ucache::uCacheManager->batch << endl;
       }
       keepRunning = false;
    };

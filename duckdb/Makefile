@@ -3,10 +3,10 @@
 module: duckdb/duckdb
 
 duckdb/duckdb: duckdb
-	cd duckdb; BUILD_BENCHMARK=1 BUILD_TPCH=1 $(MAKE) reldebug;
+	cd duckdb; DUCKDB_PLATFORM=linux_amd64 BUILD_BENCHMARK=1 BUILD_TPCH=1 make;
 
 clean:
-	if [ -d duckdb ]; then cd duckdb && $(MAKE) clean; fi
+	if [ -d duckdb ]; then cd duckdb && make clean; fi
 
 distclean:
 	rm -rf duckdb

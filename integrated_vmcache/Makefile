@@ -1,5 +1,5 @@
 src= ../..
-CXXFLAGS = -g -DNDEBUG -DCONF_debug_memory=0 -std=c++20 -mavx -mavx2 -O0
+CXXFLAGS = -g -DNDEBUG -DCONF_debug_memory=0 -std=c++20 -mavx -mavx2 -O3
 CXXFLAGS += -fnon-call-exceptions -fasynchronous-unwind-tables -shared -fPIC
 INCLUDES = -I$(src)/include -I$(src) -I$(src)/arch/common -I$(src)/arch/x64 -I$(src)/build/release/gen/include
 
