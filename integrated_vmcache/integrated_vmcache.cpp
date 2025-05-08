@@ -473,6 +473,7 @@ bool vmcache_canBeEvicted(ucache::Buffer* buf){
       }
    }
    if(PageState::getState(v) == PageState::Locked){
+      ucache::assert_crash(bm.virtMem[bm.toPID(buf->baseVirt)].dirty == false);
       return true;
    }
    return false;
@@ -507,7 +508,6 @@ void vmcache_evict_policy(ucache::VMA* vma, u64 nbToEvict, ucache::EvictList el)
                   }
                }else{
                   if(!vma->addEvictionCandidate(buf, bs, el)){
-                     bm.getPageState(pid).unlockS();
                      delete bs;
                   }
                }

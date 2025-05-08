@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
   //unsigned threads = atoi(argv[2]);
   unsigned threads = sched::cpus.size();
   u64 virtSize = atoi(argv[1]);
-  uint64_t fileSize = virtSize * 1024 * 1024 * 1024 * 1024;
+  uint64_t fileSize = virtSize * 1024 * 1024 * 1024;
 
   createCache(100l << 30, 512);
   int page_size = atoi(argv[3]);
@@ -141,35 +141,9 @@ int main(int argc, char **argv) {
             Buffer* buf = vma->getBuffer(p+pos); 
             BufferSnapshot bs(vma->nbPages);
             buf->updateSnapshot(&bs);
-            if(bs.state != BufferState::Cached)
+            if(bs.state != BufferState::Cached){
               uCacheManager->handleFault(vma, buf);
-            sum += p[pos];
-            count++;
-          }
-          break;
-        }
-        case 4: { // in memory seqread
-          while (keepGoing.load()) {
-              uint64_t scanBlock = 128 * 1024 * 1024;
-              uint64_t pos = (seqScanPos += scanBlock) % fileSize;
-
-              for (uint64_t j = 0; j < scanBlock; j += 4096) {
-                Buffer* buf = vma->getBuffer(p+pos+j); 
-                uCacheManager->handleFault(vma, buf, true);
-                sum += p[pos + j];
-                count++;
-              }
             }
-          break;
-        }
-        case 5: { // manual fault rndread
-          std::random_device rd;
-          std::mt19937 gen(rd());
-          std::uniform_int_distribution<uint64_t> rnd(0, fileSize/4096);
-          while (keepGoing.load()) {
-            u64 pos = rnd(gen);
-            Buffer* buf = vma->getBuffer(p+pos); 
-            uCacheManager->handleFault(vma, buf, true);
             sum += p[pos];
             count++;
           }
@@ -198,7 +172,6 @@ int main(int argc, char **argv) {
     sleep(1);
     uint64_t shootdowns = ucache::uCacheManager->tlbFlush.exchange(0);
     uint64_t IObytes = ucache::uCacheManager->readSize.exchange(0);
-    uint64_t pf = ucache::uCacheManager->pageFaults.exchange(0);
     uint64_t workCount = 0;
     for (auto &x : counts)
       workCount += x.val.exchange(0);
