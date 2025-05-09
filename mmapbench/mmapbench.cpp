@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
               uint64_t scanBlock = 128 * 1024 * 1024;
               uint64_t pos = (seqScanPos += scanBlock) % fileSize;
 
-              for (uint64_t j = 0; j < scanBlock; j += 4096) {
+              for (uint64_t j = 0; j < scanBlock; j += page_size) {
                 sum += p[pos + j];
                 count++;
               }
@@ -111,41 +111,6 @@ int main(int argc, char **argv) {
               sum += p[rnd(gen)];
               count++;
             }
-          }
-          break;
-        }
-        case 2: { // manual fault seqread
-          while (keepGoing.load()) {
-              uint64_t scanBlock = 128 * 1024 * 1024;
-              uint64_t pos = (seqScanPos += scanBlock) % fileSize;
-
-              for (uint64_t j = 0; j < scanBlock; j += 4096) {
-                Buffer* buf = vma->getBuffer(p+pos+j); 
-                BufferSnapshot bs(vma->nbPages);
-                buf->updateSnapshot(&bs);
-                if(bs.state != BufferState::Cached){
-                  uCacheManager->handleFault(vma, buf);
-                }
-                sum += p[pos + j];
-                count++;
-              }
-            }
-          break;
-        }
-        case 3: { // manual fault rndread
-          std::random_device rd;
-          std::mt19937 gen(rd());
-          std::uniform_int_distribution<uint64_t> rnd(0, fileSize/4096);
-          while (keepGoing.load()) {
-            u64 pos = rnd(gen);
-            Buffer* buf = vma->getBuffer(p+pos); 
-            BufferSnapshot bs(vma->nbPages);
-            buf->updateSnapshot(&bs);
-            if(bs.state != BufferState::Cached){
-              uCacheManager->handleFault(vma, buf);
-            }
-            sum += p[pos];
-            count++;
           }
           break;
         }
