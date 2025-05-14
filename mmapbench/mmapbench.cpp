@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
   }
 
   atomic<uint64_t> cpuWork(0);
-  t.emplace_back([&]() {
+  /*t.emplace_back([&]() {
     while (keepGoing.load()) {
       double x = cpuWork.load();
       for (uint64_t r = 0; r < 10000; r++) {
@@ -129,7 +129,7 @@ int main(int argc, char **argv) {
       }
       cpuWork++;
     }
-  });
+  });*/
 
   cout << "dev,seq,hint,pageSize,threads,time,workGB,tlb,readGB,CPUwork" << endl;
   double start = gettime();
@@ -152,6 +152,8 @@ int main(int argc, char **argv) {
   }
   for(auto& t: t)
     t.join();
+
+  ucache::print_stats();
 
   return 0;
 }
