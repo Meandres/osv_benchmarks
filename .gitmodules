@@ -15,3 +15,9 @@
 	path = duckdb/duckdb
 	url = git@github.com:Meandres/duckdb.git
 	branch = ucache
+[submodule "ycsb-leveldb/YCSB-cpp"]
+	path = ycsb-leveldb/YCSB-cpp
+	url = git@github.com:Meandres/YCSB-cpp.git
+[submodule "ycsb-leveldb/leveldb"]
+	path = ycsb-leveldb/leveldb
+	url = git@github.com:Meandres/leveldb.git

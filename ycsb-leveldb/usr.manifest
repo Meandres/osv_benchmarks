@@ -1,0 +1,3 @@
+/ycsb: ${MODULE_DIR}/YCSB-cpp/ycsb
+/workloads/**: ${MODULE_DIR}/YCSB-cpp/workloads/**
+/leveldb/leveldb.properties: ${MODULE_DIR}/YCSB-cpp/leveldb/leveldb.properties
