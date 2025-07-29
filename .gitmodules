@@ -21,3 +21,6 @@
 [submodule "ycsb-leveldb/leveldb"]
 	path = ycsb-leveldb/leveldb
 	url = git@github.com:Meandres/leveldb.git
+[submodule "polars"]
+	path = polars
+	url = https://github.com/Meandres/polars
