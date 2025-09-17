@@ -10,7 +10,7 @@ SELECT
     avg(l_discount) AS avg_disc,
     count(*) AS count_order
 FROM
-    'lineitem.parquet'
+    '/nvme/tpch/lineitem.parquet'
 WHERE
     l_shipdate <= CAST('1998-09-02' AS date)
 GROUP BY

@@ -2,10 +2,10 @@ SELECT
     s_name,
     count(*) AS numwait
 FROM
-    'supplier.parquet',
-    'lineitem.parquet' l1,
-    'orders.parquet',
-    'nation.parquet'
+    '/nvme/tpch/supplier.parquet',
+    '/nvme/tpch/lineitem.parquet' l1,
+    '/nvme/tpch/orders.parquet',
+    '/nvme/tpch/nation.parquet'
 WHERE
     s_suppkey = l1.l_suppkey
     AND o_orderkey = l1.l_orderkey
@@ -15,7 +15,7 @@ WHERE
         SELECT
             *
         FROM
-            'lineitem.parquet' l2
+            '/nvme/tpch/lineitem.parquet' l2
         WHERE
             l2.l_orderkey = l1.l_orderkey
             AND l2.l_suppkey <> l1.l_suppkey)
@@ -23,7 +23,7 @@ WHERE
         SELECT
             *
         FROM
-            'lineitem.parquet' l3
+            '/nvme/tpch/lineitem.parquet' l3
         WHERE
             l3.l_orderkey = l1.l_orderkey
             AND l3.l_suppkey <> l1.l_suppkey

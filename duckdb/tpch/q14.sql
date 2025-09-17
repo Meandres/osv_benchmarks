@@ -6,8 +6,8 @@ SELECT
             0
         END) / sum(l_extendedprice * (1 - l_discount)) AS promo_revenue
 FROM
-    'lineitem.parquet',
-    'part.parquet'
+    '/nvme/tpch/lineitem.parquet',
+    '/nvme/tpch/part.parquet'
 WHERE
     l_partkey = p_partkey
     AND l_shipdate >= date '1995-09-01'

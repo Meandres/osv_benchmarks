@@ -3,7 +3,7 @@ WITH revenue AS (
         l_suppkey AS supplier_no,
         sum(l_extendedprice * (1 - l_discount)) AS total_revenue
     FROM
-        'lineitem.parquet'
+        '/nvme/tpch/lineitem.parquet'
     WHERE
         l_shipdate >= CAST('1996-01-01' AS date)
       AND l_shipdate < CAST('1996-04-01' AS date)
@@ -17,8 +17,8 @@ SELECT
     s_phone,
     total_revenue
 FROM
-    'supplier.parquet',
-    'revenue.parquet'
+    '/nvme/tpch/supplier.parquet',
+    '/nvme/tpch/revenue.parquet'
 WHERE
     s_suppkey = supplier_no
     AND total_revenue = (

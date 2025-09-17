@@ -2,9 +2,9 @@ SELECT
     ps_partkey,
     sum(ps_supplycost * ps_availqty) AS value
 FROM
-    'partsupp.parquet',
-    'supplier.parquet',
-    'nation.parquet'
+    '/nvme/tpch/partsupp.parquet',
+    '/nvme/tpch/supplier.parquet',
+    '/nvme/tpch/nation.parquet'
 WHERE
     ps_suppkey = s_suppkey
     AND s_nationkey = n_nationkey
@@ -16,9 +16,9 @@ HAVING
         SELECT
             sum(ps_supplycost * ps_availqty) * 0.0001000000
         FROM
-            'partsupp.parquet',
-            'supplier.parquet',
-            'nation.parquet'
+            '/nvme/tpch/partsupp.parquet',
+            '/nvme/tpch/supplier.parquet',
+            '/nvme/tpch/nation.parquet'
         WHERE
             ps_suppkey = s_suppkey
             AND s_nationkey = n_nationkey

@@ -8,10 +8,10 @@ SELECT
     c_phone,
     c_comment
 FROM
-    'customer.parquet',
-    'orders.parquet',
-    'lineitem.parquet',
-    'nation.parquet'
+    '/nvme/tpch/customer.parquet',
+    '/nvme/tpch/orders.parquet',
+    '/nvme/tpch/lineitem.parquet',
+    '/nvme/tpch/nation.parquet'
 WHERE
     c_custkey = o_custkey
     AND l_orderkey = o_orderkey

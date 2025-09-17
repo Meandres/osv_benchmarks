@@ -459,9 +459,9 @@ bool vmcache_canBeEvicted(ucache::Buffer* buf){
    PageState& ps = bm.getPageState(pid);
    u64 v = ps.stateAndVersion;
    if(PageState::getState(v) == PageState::Marked){ // clean candidate
-      if(ps.tryLockX(v))
+      if(ps.tryLockX(v)){
          return true;
-      else
+      }else
          return false;
    }
    if(bm.virtMem[bm.toPID(buf->baseVirt)].dirty){ // has been written
@@ -535,8 +535,10 @@ BufferManager::BufferManager(){
    u64 virtAllocSize = virtSize + (1<<16); // we allocate 64KB extra to prevent segfaults during optimistic reads
 
    ucache::createCache(physSize, envOr("BATCH", 64));
-   virtMem = (Page*)ucache::uCacheManager->addVMA(virtAllocSize, pageSize);
-   ucache_vma = ucache::uCacheManager->getVMA((void*)virtMem);
+
+   ucache::initFile("/nvme/cache", virtAllocSize);
+   ucache_vma = ucache::uCacheManager->mmap("/nvme/cache", virtAllocSize, pageSize);
+   virtMem = (Page*)ucache_vma->start;
    ucache_vma->callback_implems.isDirty_implem = vmcache_isDirty;
    ucache_vma->callback_implems.clearDirty_implem = vmcache_clearDirty;
    ucache_vma->callback_implems.evict_pol = vmcache_evict_policy;
@@ -586,8 +588,9 @@ Page* BufferManager::fixX(PID pid) {
             break;
          }
          case PageState::Marked: case PageState::Unlocked: {
-            if (ps.tryLockX(stateAndVersion))
+            if (ps.tryLockX(stateAndVersion)){
                return virtMem + pid;
+            }
             break;
          }
       }
@@ -1514,7 +1517,7 @@ int main(int argc, char** argv) {
    u64 statDiff = 1e8;
    atomic<u64> txProgress(0);
    atomic<bool> keepRunning(true);
-   auto systemName = "integrated_vmcache";
+   auto systemName = "ucache";
 
    auto statFn = [&]() {
       cout << "ts,tx,rmb,wmb,system,threads,datasize,workload,batch" << endl;
@@ -1525,7 +1528,7 @@ int main(int argc, char** argv) {
          float wmb = (ucache::uCacheManager->writeSize.exchange(0))/(1024.0*1024);
          u64 prog = txProgress.exchange(0);
          u64 pf = ucache::uCacheManager->pageFaults.exchange(0);
-         cout << cnt++ << "," << prog << "," << rmb << "," << wmb << "," << systemName << "," << nthreads << "," << n << "," << (isRndread?"rndread":"tpcc") << "," << ucache::uCacheManager->batch << endl;
+         cout << cnt++ << "," << prog << "," << rmb << "," << wmb << "," << systemName << "," << nthreads << "," << n << "," << (isRndread?"rndread":"tpcc") << "," << ucache::uCacheManager->evict_batch << endl;
       }
       keepRunning = false;
    };
@@ -1580,6 +1583,7 @@ int main(int argc, char** argv) {
       });
 
       statThread.join();
+      close(bm.ucache_vma->file->fd);
       return 0;
    }
 
@@ -1639,5 +1643,6 @@ int main(int argc, char** argv) {
 
    statThread.join();
    cerr << "space: " << (bm.allocCount.load()*pageSize)/(float)bm.gb << " GB " << endl;
+   close(bm.ucache_vma->file->fd);
    return 0;
 }

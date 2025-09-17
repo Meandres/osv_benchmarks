@@ -10,7 +10,7 @@ SELECT
     avg(l_discount) AS avg_disc,
     count(*) AS count_order
 FROM
-    'lineitem.parquet'
+    '/nvme/tpch/lineitem.parquet'
 WHERE
     l_shipdate <= CAST('1998-09-02' AS date)
 GROUP BY
@@ -29,11 +29,11 @@ SELECT
     s_phone,
     s_comment
 FROM
-    'part.parquet',
-    'supplier.parquet',
-    'partsupp.parquet',
-    'nation.parquet',
-    'region.parquet'
+    '/nvme/tpch/part.parquet',
+    '/nvme/tpch/supplier.parquet',
+    '/nvme/tpch/partsupp.parquet',
+    '/nvme/tpch/nation.parquet',
+    '/nvme/tpch/region.parquet'
 WHERE
     p_partkey = ps_partkey
     AND s_suppkey = ps_suppkey
@@ -46,10 +46,10 @@ WHERE
         SELECT
             min(ps_supplycost)
         FROM
-            'partsupp.parquet',
-            'supplier.parquet',
-            'nation.parquet',
-            'region.parquet'
+            '/nvme/tpch/partsupp.parquet',
+            '/nvme/tpch/supplier.parquet',
+            '/nvme/tpch/nation.parquet',
+            '/nvme/tpch/region.parquet'
         WHERE
             p_partkey = ps_partkey
             AND s_suppkey = ps_suppkey
@@ -68,9 +68,9 @@ SELECT
     o_orderdate,
     o_shippriority
 FROM
-    'customer.parquet',
-    'orders.parquet',
-    'lineitem.parquet'
+    '/nvme/tpch/customer.parquet',
+    '/nvme/tpch/orders.parquet',
+    '/nvme/tpch/lineitem.parquet'
 WHERE
     c_mktsegment = 'BUILDING'
     AND c_custkey = o_custkey
@@ -89,7 +89,7 @@ SELECT
     o_orderpriority,
     count(*) AS order_count
 FROM
-    'orders.parquet'
+    '/nvme/tpch/orders.parquet'
 WHERE
     o_orderdate >= CAST('1993-07-01' AS date)
     AND o_orderdate < CAST('1993-10-01' AS date)
@@ -97,7 +97,7 @@ WHERE
         SELECT
             *
         FROM
-            'lineitem.parquet'
+            '/nvme/tpch/lineitem.parquet'
         WHERE
             l_orderkey = o_orderkey
             AND l_commitdate < l_receiptdate)
@@ -109,12 +109,12 @@ SELECT
     n_name,
     sum(l_extendedprice * (1 - l_discount)) AS revenue
 FROM
-    'customer.parquet',
-    'orders.parquet',
-    'lineitem.parquet',
-    'supplier.parquet',
-    'nation.parquet',
-    'region.parquet'
+    '/nvme/tpch/customer.parquet',
+    '/nvme/tpch/orders.parquet',
+    '/nvme/tpch/lineitem.parquet',
+    '/nvme/tpch/supplier.parquet',
+    '/nvme/tpch/nation.parquet',
+    '/nvme/tpch/region.parquet'
 WHERE
     c_custkey = o_custkey
     AND l_orderkey = o_orderkey
@@ -132,7 +132,7 @@ ORDER BY
 SELECT
     sum(l_extendedprice * l_discount) AS revenue
 FROM
-    'lineitem.parquet'
+    '/nvme/tpch/lineitem.parquet'
 WHERE
     l_shipdate >= CAST('1994-01-01' AS date)
     AND l_shipdate < CAST('1995-01-01' AS date)
@@ -151,12 +151,12 @@ FROM (
         extract(year FROM l_shipdate) AS l_year,
         l_extendedprice * (1 - l_discount) AS volume
     FROM
-        'supplier.parquet',
-        'lineitem.parquet',
-        'orders.parquet',
-        'customer.parquet',
-        'nation.parquet' n1,
-        'nation.parquet' n2
+        '/nvme/tpch/supplier.parquet',
+        '/nvme/tpch/lineitem.parquet',
+        '/nvme/tpch/orders.parquet',
+        '/nvme/tpch/customer.parquet',
+        '/nvme/tpch/nation.parquet' n1,
+        '/nvme/tpch/nation.parquet' n2
     WHERE
         s_suppkey = l_suppkey
         AND o_orderkey = l_orderkey
@@ -191,14 +191,14 @@ FROM (
         l_extendedprice * (1 - l_discount) AS volume,
         n2.n_name AS nation
     FROM
-        'part.parquet',
-        'supplier.parquet',
-        'lineitem.parquet',
-        'orders.parquet',
-        'customer.parquet',
-        'nation.parquet' n1,
-        'nation.parquet' n2,
-        'region.parquet'
+        '/nvme/tpch/part.parquet',
+        '/nvme/tpch/supplier.parquet',
+        '/nvme/tpch/lineitem.parquet',
+        '/nvme/tpch/orders.parquet',
+        '/nvme/tpch/customer.parquet',
+        '/nvme/tpch/nation.parquet' n1,
+        '/nvme/tpch/nation.parquet' n2,
+        '/nvme/tpch/region.parquet'
     WHERE
         p_partkey = l_partkey
         AND s_suppkey = l_suppkey
@@ -225,12 +225,12 @@ FROM (
         extract(year FROM o_orderdate) AS o_year,
         l_extendedprice * (1 - l_discount) - ps_supplycost * l_quantity AS amount
     FROM
-        'part.parquet',
-        'supplier.parquet',
-        'lineitem.parquet',
-        'partsupp.parquet',
-        'orders.parquet',
-        'nation.parquet'
+        '/nvme/tpch/part.parquet',
+        '/nvme/tpch/supplier.parquet',
+        '/nvme/tpch/lineitem.parquet',
+        '/nvme/tpch/partsupp.parquet',
+        '/nvme/tpch/orders.parquet',
+        '/nvme/tpch/nation.parquet'
     WHERE
         s_suppkey = l_suppkey
         AND ps_suppkey = l_suppkey
@@ -255,10 +255,10 @@ SELECT
     c_phone,
     c_comment
 FROM
-    'customer.parquet',
-    'orders.parquet',
-    'lineitem.parquet',
-    'nation.parquet'
+    '/nvme/tpch/customer.parquet',
+    '/nvme/tpch/orders.parquet',
+    '/nvme/tpch/lineitem.parquet',
+    '/nvme/tpch/nation.parquet'
 WHERE
     c_custkey = o_custkey
     AND l_orderkey = o_orderkey
@@ -281,9 +281,9 @@ SELECT
     ps_partkey,
     sum(ps_supplycost * ps_availqty) AS value
 FROM
-    'partsupp.parquet',
-    'supplier.parquet',
-    'nation.parquet'
+    '/nvme/tpch/partsupp.parquet',
+    '/nvme/tpch/supplier.parquet',
+    '/nvme/tpch/nation.parquet'
 WHERE
     ps_suppkey = s_suppkey
     AND s_nationkey = n_nationkey
@@ -295,9 +295,9 @@ HAVING
         SELECT
             sum(ps_supplycost * ps_availqty) * 0.0001000000
         FROM
-            'partsupp.parquet',
-            'supplier.parquet',
-            'nation.parquet'
+            '/nvme/tpch/partsupp.parquet',
+            '/nvme/tpch/supplier.parquet',
+            '/nvme/tpch/nation.parquet'
         WHERE
             ps_suppkey = s_suppkey
             AND s_nationkey = n_nationkey
@@ -321,8 +321,8 @@ SELECT
             0
         END) AS low_line_count
 FROM
-    'orders.parquet',
-    'lineitem.parquet'
+    '/nvme/tpch/orders.parquet',
+    '/nvme/tpch/lineitem.parquet'
 WHERE
     o_orderkey = l_orderkey
     AND l_shipmode IN ('MAIL', 'SHIP')
@@ -342,8 +342,8 @@ FROM (
         c_custkey,
         count(o_orderkey)
     FROM
-        'customer.parquet'
-    LEFT OUTER JOIN 'orders.parquet' ON c_custkey = o_custkey
+        '/nvme/tpch/customer.parquet'
+    LEFT OUTER JOIN '/nvme/tpch/orders.parquet' ON c_custkey = o_custkey
     AND o_comment NOT LIKE '%special%requests%'
 GROUP BY
     c_custkey) AS c_orders (c_custkey,
@@ -361,8 +361,8 @@ SELECT
             0
         END) / sum(l_extendedprice * (1 - l_discount)) AS promo_revenue
 FROM
-    'lineitem.parquet',
-    'part.parquet'
+    '/nvme/tpch/lineitem.parquet',
+    '/nvme/tpch/part.parquet'
 WHERE
     l_partkey = p_partkey
     AND l_shipdate >= date '1995-09-01'
@@ -373,8 +373,8 @@ SELECT
     p_size,
     count(DISTINCT ps_suppkey) AS supplier_cnt
 FROM
-    'partsupp.parquet',
-    'part.parquet'
+    '/nvme/tpch/partsupp.parquet',
+    '/nvme/tpch/part.parquet'
 WHERE
     p_partkey = ps_partkey
     AND p_brand <> 'Brand#45'
@@ -384,7 +384,7 @@ WHERE
         SELECT
             s_suppkey
         FROM
-            'supplier.parquet'
+            '/nvme/tpch/supplier.parquet'
         WHERE
             s_comment LIKE '%Customer%Complaints%')
 GROUP BY
@@ -399,8 +399,8 @@ ORDER BY
 SELECT
     sum(l_extendedprice) / 7.0 AS avg_yearly
 FROM
-    'lineitem.parquet',
-    'part.parquet'
+    '/nvme/tpch/lineitem.parquet',
+    '/nvme/tpch/part.parquet'
 WHERE
     p_partkey = l_partkey
     AND p_brand = 'Brand#23'
@@ -409,7 +409,7 @@ WHERE
         SELECT
             0.2 * avg(l_quantity)
         FROM
-            'lineitem.parquet'
+            '/nvme/tpch/lineitem.parquet'
         WHERE
             l_partkey = p_partkey);
 SELECT
@@ -420,15 +420,15 @@ SELECT
     o_totalprice,
     sum(l_quantity)
 FROM
-    'customer.parquet',
-    'orders.parquet',
-    'lineitem.parquet'
+    '/nvme/tpch/customer.parquet',
+    '/nvme/tpch/orders.parquet',
+    '/nvme/tpch/lineitem.parquet'
 WHERE
     o_orderkey IN (
         SELECT
             l_orderkey
         FROM
-            'lineitem.parquet'
+            '/nvme/tpch/lineitem.parquet'
         GROUP BY
             l_orderkey
         HAVING
@@ -448,8 +448,8 @@ LIMIT 100;
 SELECT
     sum(l_extendedprice * (1 - l_discount)) AS revenue
 FROM
-    'lineitem.parquet',
-    'part.parquet'
+    '/nvme/tpch/lineitem.parquet',
+    '/nvme/tpch/part.parquet'
 WHERE (p_partkey = l_partkey
     AND p_brand = 'Brand#12'
     AND p_container IN ('SM CASE', 'SM BOX', 'SM PACK', 'SM PKG')
@@ -478,27 +478,27 @@ SELECT
     s_name,
     s_address
 FROM
-    'supplier.parquet',
-    'nation.parquet'
+    '/nvme/tpch/supplier.parquet',
+    '/nvme/tpch/nation.parquet'
 WHERE
     s_suppkey IN (
         SELECT
             ps_suppkey
         FROM
-            'partsupp.parquet'
+            '/nvme/tpch/partsupp.parquet'
         WHERE
             ps_partkey IN (
                 SELECT
                     p_partkey
                 FROM
-                    'part.parquet'
+                    '/nvme/tpch/part.parquet'
                 WHERE
                     p_name LIKE 'forest%')
                 AND ps_availqty > (
                     SELECT
                         0.5 * sum(l_quantity)
                     FROM
-                        'lineitem.parquet'
+                        '/nvme/tpch/lineitem.parquet'
                     WHERE
                         l_partkey = ps_partkey
                         AND l_suppkey = ps_suppkey
@@ -512,10 +512,10 @@ SELECT
     s_name,
     count(*) AS numwait
 FROM
-    'supplier.parquet',
-    'lineitem.parquet' l1,
-    'orders.parquet',
-    'nation.parquet'
+    '/nvme/tpch/supplier.parquet',
+    '/nvme/tpch/lineitem.parquet' l1,
+    '/nvme/tpch/orders.parquet',
+    '/nvme/tpch/nation.parquet'
 WHERE
     s_suppkey = l1.l_suppkey
     AND o_orderkey = l1.l_orderkey
@@ -525,7 +525,7 @@ WHERE
         SELECT
             *
         FROM
-            'lineitem.parquet' l2
+            '/nvme/tpch/lineitem.parquet' l2
         WHERE
             l2.l_orderkey = l1.l_orderkey
             AND l2.l_suppkey <> l1.l_suppkey)
@@ -533,7 +533,7 @@ WHERE
         SELECT
             *
         FROM
-            'lineitem.parquet' l3
+            '/nvme/tpch/lineitem.parquet' l3
         WHERE
             l3.l_orderkey = l1.l_orderkey
             AND l3.l_suppkey <> l1.l_suppkey
@@ -555,14 +555,14 @@ FROM (
         substring(c_phone FROM 1 FOR 2) AS cntrycode,
         c_acctbal
     FROM
-        'customer.parquet'
+        '/nvme/tpch/customer.parquet'
     WHERE
         substring(c_phone FROM 1 FOR 2) IN ('13', '31', '23', '29', '30', '18', '17')
         AND c_acctbal > (
             SELECT
                 avg(c_acctbal)
             FROM
-                'customer.parquet'
+                '/nvme/tpch/customer.parquet'
             WHERE
                 c_acctbal > 0.00
                 AND substring(c_phone FROM 1 FOR 2) IN ('13', '31', '23', '29', '30', '18', '17'))
@@ -570,7 +570,7 @@ FROM (
                 SELECT
                     *
                 FROM
-                    'orders.parquet'
+                    '/nvme/tpch/orders.parquet'
                 WHERE
                     o_custkey = c_custkey)) AS custsale
 GROUP BY

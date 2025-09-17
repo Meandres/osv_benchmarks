@@ -1,0 +1,2 @@
+/db_bench: ${MODULE_DIR}/build/libdb_bench.so
+/libgflags.so.2.2: /nix/store/k79qysxpx8yirqmz5vs49g8wp7ibc1mn-gflags-2.2.2/lib/libgflags.so.2.2 

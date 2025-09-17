@@ -28,12 +28,6 @@
 using namespace std;
 using namespace ucache;
 
-#define check(expr)                                                            \
-  if (!(expr)) {                                                               \
-    perror(#expr);                                                             \
-    throw;                                                                     \
-  }
-
 atomic<bool> keepGoing;
 
 int stick_this_thread_to_core(int core_id) {
@@ -52,25 +46,33 @@ double gettime() {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 5) {
-    cerr << "virtSize(in TiB) mode(0,1,2) pageSize timetorun(in sec)" << endl;
+  /*createCache(1000*4096, 32);
+  VMA* vma = uCacheManager->mmap("/nvme/cache", 2ul*1024*1024, 4096);
+  char* p = (char*)vma->start;
+  char a;
+  for(u64 i= 0; i< (2ul*1024*1024)/4096; i++){
+    a += p[i*4096];
+  }
+  printf("a: %c\n", a);
+  return 0;*/
+  if (argc != 6) {
+    cerr << "virtSize(in GiB) physSize(in GiB) workload pageSize timetorun(in sec)" << endl;
     return 1;
   }
 
-  //unsigned threads = atoi(argv[2]);
+  u64 virtSize = atoi(argv[1]) * 1024ul * 1024 * 1024;
+  u64 physSize = atoi(argv[2]) * 1024ul * 1024 * 1024;
+  int mode = atoi(argv[3]);
+  u64 page_size = atoi(argv[4]);
+  int maxTime = atoi(argv[5]);
+
   unsigned threads = sched::cpus.size();
-  u64 virtSize = atoi(argv[1]);
-  uint64_t fileSize = virtSize * 1024 * 1024 * 1024;
-
-  createCache(100l << 30, 512);
-  int page_size = atoi(argv[3]);
-  char *p = (char *)uCacheManager->addVMA(fileSize, page_size);
-  VMA* vma = uCacheManager->getVMA((void*)p);
-
-  int mode = atoi(argv[2]);
-  int maxTime = atoi(argv[4]);
-  keepGoing.store(true);
-
+  u64 batch = NVME_IO_QUEUE_SIZE / (page_size/4096);
+  createCache(physSize, batch);
+  VMA* vma = uCacheManager->mmap("/nvme/cache", virtSize, page_size);
+  char* p = (char*)vma->start;
+  assert_crash(virtSize <= vma->size);
+  
   struct atomic_u64_padded{
     std::atomic<uint64_t> val;
     char padding[64 - sizeof(std::atomic<uint64_t>)];
@@ -80,38 +82,58 @@ int main(int argc, char **argv) {
   std::vector<atomic_u64_padded> sums(threads);
   atomic<uint64_t> seqScanPos(0);
 
+  keepGoing.store(true);
+
   vector<thread> t;
   for (unsigned i = 0; i < threads; i++) {
     t.emplace_back([&, i]() {
       stick_this_thread_to_core(i);
       atomic<uint64_t> &count = counts[i].val;
       atomic<uint64_t> &sum = sums[i].val;
-
       count = 0;
       sum = 0;
       switch(mode){
-        case 0: { // og seq
-          while (keepGoing.load()) {
-              uint64_t scanBlock = 128 * 1024 * 1024;
-              uint64_t pos = (seqScanPos += scanBlock) % fileSize;
-
-              for (uint64_t j = 0; j < scanBlock; j += page_size) {
-                sum += p[pos + j];
-                count++;
-              }
+        case 0: { // seqread
+	        while (keepGoing.load()) {
+	          uint64_t scanBlock = 512*1024*1024;
+	          uint64_t pos = (seqScanPos += scanBlock) % (virtSize-page_size);
+            if(pos >= physSize){
+              reset_stats(i); 
             }
+
+	          for (uint64_t j=0; j<scanBlock; j+=4096) {
+	            sum += p[pos + j];
+	            count++;
+	          }
+	        }
           break;
         }
-        case 1: { // og rndread
+        case 1: { // rndread
           {
           std::random_device rd;
           std::mt19937 gen(rd());
-          std::uniform_int_distribution<uint64_t> rnd(0, fileSize);
+          std::uniform_int_distribution<uint64_t> rnd(0, (virtSize/page_size)-1);
             while (keepGoing.load()) {
-              sum += p[rnd(gen)];
+              u64 pos = rnd(gen)*page_size;
+              sum += p[pos];
               count++;
             }
           }
+          break;
+        }
+        case 2: { // seqread
+	        while (keepGoing.load()) {
+	          uint64_t scanBlock = 512*1024*1024;
+	          uint64_t pos = (seqScanPos += scanBlock) % (virtSize-page_size);
+            if(pos >= physSize){
+              reset_stats(i); 
+            }
+
+	          for (uint64_t j=0; j<scanBlock; j+=4096) {
+	            p[pos + j] = count;
+	            count++;
+	          }
+	        }
           break;
         }
         default:
@@ -120,31 +142,16 @@ int main(int argc, char **argv) {
     });
   }
 
-  atomic<uint64_t> cpuWork(0);
-  /*t.emplace_back([&]() {
-    while (keepGoing.load()) {
-      double x = cpuWork.load();
-      for (uint64_t r = 0; r < 10000; r++) {
-        x = exp(log(x));
-      }
-      cpuWork++;
-    }
-  });*/
-
-  cout << "dev,seq,hint,pageSize,threads,time,workGB,tlb,readGB,CPUwork" << endl;
+  cout << "system,workload,pageSize,threads,time,throughput" << endl;
   double start = gettime();
   while (true) {
     sleep(1);
-    uint64_t shootdowns = ucache::uCacheManager->tlbFlush.exchange(0);
-    uint64_t IObytes = ucache::uCacheManager->readSize.exchange(0);
     uint64_t workCount = 0;
     for (auto &x : counts)
       workCount += x.val.exchange(0);
     double ti = gettime() - start;
-    cout << "/none," << mode << ",0," << page_size << "," << threads << "," << ti  << "," << (workCount * 4096) / (1024.0 * 1024 * 1024)
-         << "," << shootdowns << ","
-         << IObytes / (1024.0 * 1024 * 1024) << ","
-         << cpuWork.exchange(0) << endl;
+    cout << 
+      "ucache," << mode << "," << page_size << "," << threads << "," << ti  <<  "," << workCount << endl;
     if(ti >= maxTime){
       keepGoing.store(false);
       break;
@@ -154,6 +161,8 @@ int main(int argc, char **argv) {
     t.join();
 
   ucache::print_stats();
+
+  close(vma->file->fd);
 
   return 0;
 }

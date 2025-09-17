@@ -8,11 +8,11 @@ SELECT
     s_phone,
     s_comment
 FROM
-    'part.parquet',
-    'supplier.parquet',
-    'partsupp.parquet',
-    'nation.parquet',
-    'region.parquet'
+    '/nvme/tpch/part.parquet',
+    '/nvme/tpch/supplier.parquet',
+    '/nvme/tpch/partsupp.parquet',
+    '/nvme/tpch/nation.parquet',
+    '/nvme/tpch/region.parquet'
 WHERE
     p_partkey = ps_partkey
     AND s_suppkey = ps_suppkey
@@ -25,10 +25,10 @@ WHERE
         SELECT
             min(ps_supplycost)
         FROM
-            'partsupp.parquet',
-            'supplier.parquet',
-            'nation.parquet',
-            'region.parquet'
+            '/nvme/tpch/partsupp.parquet',
+            '/nvme/tpch/supplier.parquet',
+            '/nvme/tpch/nation.parquet',
+            '/nvme/tpch/region.parquet'
         WHERE
             p_partkey = ps_partkey
             AND s_suppkey = ps_suppkey

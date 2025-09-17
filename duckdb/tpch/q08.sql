@@ -12,14 +12,14 @@ FROM (
         l_extendedprice * (1 - l_discount) AS volume,
         n2.n_name AS nation
     FROM
-        'part.parquet',
-        'supplier.parquet',
-        'lineitem.parquet',
-        'orders.parquet',
-        'customer.parquet',
-        'nation.parquet' n1,
-        'nation.parquet' n2,
-        'region.parquet'
+        '/nvme/tpch/part.parquet',
+        '/nvme/tpch/supplier.parquet',
+        '/nvme/tpch/lineitem.parquet',
+        '/nvme/tpch/orders.parquet',
+        '/nvme/tpch/customer.parquet',
+        '/nvme/tpch/nation.parquet' n1,
+        '/nvme/tpch/nation.parquet' n2,
+        '/nvme/tpch/region.parquet'
     WHERE
         p_partkey = l_partkey
         AND s_suppkey = l_suppkey

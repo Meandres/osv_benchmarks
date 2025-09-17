@@ -2,8 +2,3 @@
 /libduckdb.so: ${MODULE_DIR}/duckdb/build/release/src/libduckdb.so
 /duckdb: ${MODULE_DIR}/duckdb/build/release/tools/shell/libduckdb.so
 /tpch/**: ${MODULE_DIR}/tpch/**
-/nvme_files.txt: ${MODULE_DIR}/nvme_files.txt
-/usr/lib/librte_ring.so.23: ${DPDK_DIR}/lib/librte_ring.so.23
-/usr/lib/librte_eal.so.23: ${DPDK_DIR}/lib/librte_eal.so.23
-/usr/lib/librte_kvargs.so.23: ${DPDK_DIR}/lib/librte_kvargs.so.23
-/usr/lib/librte_telemetry.so.23: ${DPDK_DIR}/lib/librte_telemetry.so.23

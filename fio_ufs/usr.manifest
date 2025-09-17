@@ -1,0 +1,2 @@
+/fio: ${MODULE_DIR}/fio/fio
+/ioengine_ufs.so: ${MODULE_DIR}/ioengine_ufs.so

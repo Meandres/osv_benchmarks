@@ -2,12 +2,12 @@ SELECT
     n_name,
     sum(l_extendedprice * (1 - l_discount)) AS revenue
 FROM
-    'customer.parquet',
-    'orders.parquet',
-    'lineitem.parquet',
-    'supplier.parquet',
-    'nation.parquet',
-    'region.parquet'
+    '/nvme/tpch/customer.parquet',
+    '/nvme/tpch/orders.parquet',
+    '/nvme/tpch/lineitem.parquet',
+    '/nvme/tpch/supplier.parquet',
+    '/nvme/tpch/nation.parquet',
+    '/nvme/tpch/region.parquet'
 WHERE
     c_custkey = o_custkey
     AND l_orderkey = o_orderkey

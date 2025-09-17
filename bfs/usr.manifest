@@ -1,0 +1,2 @@
+/run_bfs: ${MODULE_DIR}/run_bfs
+/libgomp.so.1: /nix/store/1z0lkblksl7niy2w5rfv265hw0fn9p1q-gcc-13.2.0-lib/lib/libgomp.so.1

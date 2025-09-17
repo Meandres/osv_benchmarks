@@ -1,8 +1,8 @@
 SELECT
     sum(l_extendedprice) / 7.0 AS avg_yearly
 FROM
-    'lineitem.parquet',
-    'part.parquet'
+    '/nvme/tpch/lineitem.parquet',
+    '/nvme/tpch/part.parquet'
 WHERE
     p_partkey = l_partkey
     AND p_brand = 'Brand#23'
@@ -11,6 +11,6 @@ WHERE
         SELECT
             0.2 * avg(l_quantity)
         FROM
-            'lineitem.parquet'
+            '/nvme/tpch/lineitem.parquet'
         WHERE
             l_partkey = p_partkey);

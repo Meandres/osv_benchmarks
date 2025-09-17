@@ -8,12 +8,12 @@ FROM (
         extract(year FROM o_orderdate) AS o_year,
         l_extendedprice * (1 - l_discount) - ps_supplycost * l_quantity AS amount
     FROM
-        'part.parquet',
-        'supplier.parquet',
-        'lineitem.parquet',
-        'partsupp.parquet',
-        'orders.parquet',
-        'nation.parquet'
+        '/nvme/tpch/part.parquet',
+        '/nvme/tpch/supplier.parquet',
+        '/nvme/tpch/lineitem.parquet',
+        '/nvme/tpch/partsupp.parquet',
+        '/nvme/tpch/orders.parquet',
+        '/nvme/tpch/nation.parquet'
     WHERE
         s_suppkey = l_suppkey
         AND ps_suppkey = l_suppkey

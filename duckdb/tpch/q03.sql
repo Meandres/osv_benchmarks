@@ -4,9 +4,9 @@ SELECT
     o_orderdate,
     o_shippriority
 FROM
-    'customer.parquet',
-    'orders.parquet',
-    'lineitem.parquet'
+    '/nvme/tpch/customer.parquet',
+    '/nvme/tpch/orders.parquet',
+    '/nvme/tpch/lineitem.parquet'
 WHERE
     c_mktsegment = 'BUILDING'
     AND c_custkey = o_custkey

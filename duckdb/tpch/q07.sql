@@ -10,12 +10,12 @@ FROM (
         extract(year FROM l_shipdate) AS l_year,
         l_extendedprice * (1 - l_discount) AS volume
     FROM
-        'supplier.parquet',
-        'lineitem.parquet',
-        'orders.parquet',
-        'customer.parquet',
-        'nation.parquet' n1,
-        'nation.parquet' n2
+        '/nvme/tpch/supplier.parquet',
+        '/nvme/tpch/lineitem.parquet',
+        '/nvme/tpch/orders.parquet',
+        '/nvme/tpch/customer.parquet',
+        '/nvme/tpch/nation.parquet' n1,
+        '/nvme/tpch/nation.parquet' n2
     WHERE
         s_suppkey = l_suppkey
         AND o_orderkey = l_orderkey

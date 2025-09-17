@@ -15,8 +15,8 @@ SELECT
             0
         END) AS low_line_count
 FROM
-    'orders.parquet',
-    'lineitem.parquet'
+    '/nvme/tpch/orders.parquet',
+    '/nvme/tpch/lineitem.parquet'
 WHERE
     o_orderkey = l_orderkey
     AND l_shipmode IN ('MAIL', 'SHIP')

@@ -6,15 +6,15 @@ SELECT
     o_totalprice,
     sum(l_quantity)
 FROM
-    'customer.parquet',
-    'orders.parquet',
-    'lineitem.parquet'
+    '/nvme/tpch/customer.parquet',
+    '/nvme/tpch/orders.parquet',
+    '/nvme/tpch/lineitem.parquet'
 WHERE
     o_orderkey IN (
         SELECT
             l_orderkey
         FROM
-            'lineitem.parquet'
+            '/nvme/tpch/lineitem.parquet'
         GROUP BY
             l_orderkey
         HAVING
