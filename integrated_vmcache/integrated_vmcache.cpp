@@ -1583,7 +1583,7 @@ int main(int argc, char** argv) {
       });
 
       statThread.join();
-      close(bm.ucache_vma->file->fd);
+      bm.ucache_vma->file->close();
       return 0;
    }
 
@@ -1643,6 +1643,6 @@ int main(int argc, char** argv) {
 
    statThread.join();
    cerr << "space: " << (bm.allocCount.load()*pageSize)/(float)bm.gb << " GB " << endl;
-   close(bm.ucache_vma->file->fd);
+   bm.ucache_vma->file->close();
    return 0;
 }

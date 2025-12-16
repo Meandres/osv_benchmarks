@@ -162,7 +162,7 @@ int main(int argc, char **argv) {
 
   ucache::print_stats();
 
-  close(vma->file->fd);
+  vma->file->close();
 
   return 0;
 }
