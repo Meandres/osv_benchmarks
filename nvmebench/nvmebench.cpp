@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
   for(auto& t: t)
     t.join();
 
-  close(vma->file->fd);
+  vma->file->close();
 
   return 0;
 }
