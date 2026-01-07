@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
     }
     u64 size = workCount * ioSize;
     cout << 
-      "ufs," << modeStr << "," << ioSize << "," << threads << "," << ti  << "," << queueDepth << "," << size / (1024 * 1024+0.0) << "," << workCount << endl;
+      "ufs," << modeStr << "," << ioSize << "," << threads << "," << ti  << "," << queueDepth << "," << size / (1024 * 1024+0.0) << endl;
     if(ti >= rampTime+recordTime){
       keepGoing.store(false);
       break;
