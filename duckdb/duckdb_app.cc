@@ -5,7 +5,7 @@
  *
  * Parameters via environment variables:
  *
- *   TPCH_QUERY=<N>              run query N (1-22)
+ *   TPCH_QUERY=<N|all>          run query N (1-22), or all queries sequentially (default: all)
  *   TPCH_REPEAT=<K>             repeat each query K times (default: 1)
  *
  *   -- Linux only --
@@ -125,7 +125,9 @@ int main(int argc, char** argv)
     const char *query_env  = getenv("TPCH_QUERY");
     const char *repeat_env = getenv("TPCH_REPEAT");
 
-    int  query_num = query_env ? atoi(query_env) : 0;
+    // query_num == 0 means "all" (run queries 1-22 in order).
+    bool run_all  = !query_env || strcmp(query_env, "all") == 0;
+    int  query_num = run_all ? 0 : atoi(query_env);
     int  repeat    = repeat_env ? atoi(repeat_env) : 1;
 
     if (repeat < 1) repeat = 1;
@@ -223,9 +225,9 @@ int main(int argc, char** argv)
     duckdb::DuckDB db(nullptr, &config);
     duckdb::Connection con(db);
 
-    if (file_cache_mem > 0) {
-        duckdb::ExternalFileCache::Get(*con.context).SetMaxBytes(file_cache_mem);
-    }
+    // if (file_cache_mem > 0) {
+    //     duckdb::ExternalFileCache::Get(*con.context).SetMaxBytes(file_cache_mem);
+    // }
 
     // DuckDB pins its N-1 worker threads to CPUs 0..(N-2). The main thread
     // is not a DuckDB worker so it has no affinity and can migrate between CPUs
@@ -242,22 +244,37 @@ int main(int argc, char** argv)
 
     // ── Run queries ───────────────────────────────────────────────────────────
 
-    if (query_num >= 1 && query_num <= 22) {
-#ifdef __OSV__
-        // Pre-open uCache VMAs for all files this query accesses.
-        // mmap() is idempotent — subsequent DuckDB opens return the existing VMA.
-        // This isolates VMA creation time from the timed query execution below.
-        double t_preopen = now_ms();
-        for (int i = 0; tpch::kQueryFiles[query_num][i] != nullptr; i++)
-            osv_fs->PreOpen(tpch::kQueryFiles[query_num][i]);
-        printf("  [pre-open] time=%.1f ms\n", now_ms() - t_preopen);
-#endif
-        run_query(con, query_num, repeat);
-    } else {
-        printf("Usage: set TPCH_QUERY=<1-22> [TPCH_REPEAT=K]\n");
+    if (!run_all && (query_num < 1 || query_num > 22)) {
+        printf("Usage: set TPCH_QUERY=<1-22|all> [TPCH_REPEAT=K]\n");
         printf("  TPCH_QUERY=N    run TPC-H query N (1-22)\n");
+        printf("  TPCH_QUERY=all  run all queries 1-22 sequentially (default)\n");
         printf("  TPCH_REPEAT=K   repeat each query K times (default: 1)\n");
         return 1;
+    }
+
+#ifdef __OSV__
+    // Pre-open uCache VMAs for all files the selected queries will access.
+    // mmap() is idempotent — subsequent DuckDB opens return the existing VMA.
+    // This isolates VMA creation time from the timed query execution below.
+    {
+        double t_preopen = now_ms();
+        if (run_all) {
+            for (int q = 1; q <= 22; q++)
+                for (int i = 0; tpch::kQueryFiles[q][i] != nullptr; i++)
+                    osv_fs->PreOpen(tpch::kQueryFiles[q][i]);
+        } else {
+            for (int i = 0; tpch::kQueryFiles[query_num][i] != nullptr; i++)
+                osv_fs->PreOpen(tpch::kQueryFiles[query_num][i]);
+        }
+        printf("  [pre-open] time=%.1f ms\n", now_ms() - t_preopen);
+    }
+#endif
+
+    if (run_all) {
+        for (int q = 1; q <= 22; q++)
+            run_query(con, q, repeat);
+    } else {
+        run_query(con, query_num, repeat);
     }
     return 0;
 }

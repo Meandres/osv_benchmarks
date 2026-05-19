@@ -26,10 +26,20 @@ void enqueue_prefetch(ucache::VMA *vma, duckdb::idx_t pos, duckdb::idx_t len) {
     // Count total in-flight prefetch IOs across all CPUs to avoid saturating the
     // NVMe submission queue.  Only issue up to (prefetch_batch - total_inflight)
     // new IOs per call.
+    //
+    // per_cpu_inflight_count is a signed int.  It can transiently go negative due
+    // to the race between UncachedToPrefetching (which sets the prefetcher field
+    // in the PTE, making the buffer visible as Reading) and the fetch_add in
+    // prefetch() (which increments the counter a few instructions later).  If a
+    // page fault resolves the IO between those two instructions the decrement in
+    // ReadyToInsertToCached fires before the increment, yielding -1.  Casting a
+    // negative int to u64 wraps to ~2^64, so we clamp each per-CPU value to ≥ 0.
     u64 total_inflight = 0;
-    for (size_t i = 0; i < sched::cpus.size(); i++)
-        total_inflight += (u64)ucache::uCacheManager->per_cpu_inflight_count[i].load(
-                              std::memory_order_relaxed);
+    for (size_t i = 0; i < sched::cpus.size(); i++) {
+        int v = ucache::uCacheManager->per_cpu_inflight_count[i].load(
+                    std::memory_order_relaxed);
+        if (v > 0) total_inflight += (u64)v;
+    }
 
     u64 batch_cap = ucache::uCacheManager->prefetch_batch;
     if (total_inflight >= batch_cap) return;  // queue already busy, skip this hint
