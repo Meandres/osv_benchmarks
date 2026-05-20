@@ -84,9 +84,31 @@ static void run_query(duckdb::Connection &con, int qnum, int repeat) {
     printf(" ===\n");
 
     for (int r = 0; r < repeat; r++) {
+#ifdef __OSV__
+        // Background thread samples physical memory every second while the
+        // query runs so we can see the peak even if the query crashes/OOMs.
+        std::atomic<bool> query_done{false};
+        std::thread mem_sampler([&]() {
+            while (!query_done.load(std::memory_order_relaxed)) {
+                u64 pfree  = ucache::stat_free_phys_mem();
+                u64 ptotal = ucache::stat_total_phys_mem();
+                size_t huge_blocks = ucache::stat_free_huge_blocks();
+                printf("  [mem-sample] used=%.2f GiB  free=%.2f GiB  huge_blocks=%zu\n",
+                       (ptotal - pfree) / (1024.0*1024*1024),
+                       pfree            / (1024.0*1024*1024),
+                       huge_blocks);
+                fflush(stdout);
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+        });
+#endif
         double t0 = now_ms();
         auto result = con.Query(sql);
         double elapsed = now_ms() - t0;
+#ifdef __OSV__
+        query_done.store(true, std::memory_order_relaxed);
+        mem_sampler.join();
+#endif
 
         if (result->HasError()) {
             printf("  [run %d] ERROR: %s\n", r + 1, result->GetError().c_str());
@@ -96,6 +118,14 @@ static void run_query(duckdb::Connection &con, int qnum, int repeat) {
         printf("  [run %d] rows=%" PRIu64 "  time=%.1f ms\n",
                r + 1, (uint64_t)result->RowCount(), elapsed);
         #ifdef __OSV__
+        {
+            u64 pfree  = ucache::stat_free_phys_mem();
+            u64 ptotal = ucache::stat_total_phys_mem();
+            printf("  [memory]   used=%.2f GiB  free=%.2f GiB\n",
+                   (ptotal - pfree) / (1024.0*1024*1024),
+                   pfree            / (1024.0*1024*1024));
+        }
+        ucache::print_llfree_stats();
         ucache::print_stats();
         #endif
     }
@@ -267,12 +297,21 @@ int main(int argc, char** argv)
                 osv_fs->PreOpen(tpch::kQueryFiles[query_num][i]);
         }
         printf("  [pre-open] time=%.1f ms\n", now_ms() - t_preopen);
+        u64 phys_free  = ucache::stat_free_phys_mem();
+        u64 phys_total = ucache::stat_total_phys_mem();
+        u64 phys_used  = phys_total - phys_free;
+        printf("  [memory]   used=%.2f GiB  free=%.2f GiB  total=%.2f GiB\n",
+               phys_used  / (1024.0*1024*1024),
+               phys_free  / (1024.0*1024*1024),
+               phys_total / (1024.0*1024*1024));
     }
 #endif
 
     if (run_all) {
+        double t_all = now_ms();
         for (int q = 1; q <= 22; q++)
             run_query(con, q, repeat);
+        printf("\n=== TOTAL time=%.1f ms ===\n", now_ms() - t_all);
     } else {
         run_query(con, query_num, repeat);
     }
