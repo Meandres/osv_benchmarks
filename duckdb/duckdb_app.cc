@@ -6,7 +6,8 @@
  * Parameters via environment variables:
  *
  *   TPCH_QUERY=<N|all>          run query N (1-22), or all queries sequentially (default: all)
- *   TPCH_REPEAT=<K>             repeat each query K times (default: 1)
+ *   TPCH_REPEAT=<K>             when TPCH_QUERY=N:   repeat query N K times (default: 1)
+ *                               when TPCH_QUERY=all: repeat the full Q1-Q22 sequence K times
  *
  *   -- Linux only --
  *   argv[1] = <N>               total thread count including the main thread
@@ -77,58 +78,81 @@ static double now_ms() {
     return ts.tv_sec * 1000.0 + ts.tv_nsec / 1e6;
 }
 
-static void run_query(duckdb::Connection &con, int qnum, int repeat) {
+#ifdef __OSV__
+// Benchmark-wide peak memory stats, updated after each query.
+static u64    g_bm_peak_used       = 0;
+static size_t g_bm_min_huge_blocks = ~(size_t)0;
+#endif
+
+// Runs qnum once; on OSv silently tracks peak memory via a background sampler
+// and prints a single result line.  Returns elapsed ms, or -1.0 on error.
+static double run_query(duckdb::Connection &con, int qnum) {
     const char *sql = tpch::kQueries[qnum];
-    printf("\n=== TPC-H Q%02d", qnum);
-    if (repeat > 1) printf(" x%d", repeat);
-    printf(" ===\n");
+    printf("\n=== TPC-H Q%02d ===\n", qnum);
 
-    for (int r = 0; r < repeat; r++) {
 #ifdef __OSV__
-        // Background thread samples physical memory every second while the
-        // query runs so we can see the peak even if the query crashes/OOMs.
-        std::atomic<bool> query_done{false};
-        std::thread mem_sampler([&]() {
-            while (!query_done.load(std::memory_order_relaxed)) {
-                u64 pfree  = ucache::stat_free_phys_mem();
-                u64 ptotal = ucache::stat_total_phys_mem();
-                size_t huge_blocks = ucache::stat_free_huge_blocks();
-                printf("  [mem-sample] used=%.2f GiB  free=%.2f GiB  huge_blocks=%zu\n",
-                       (ptotal - pfree) / (1024.0*1024*1024),
-                       pfree            / (1024.0*1024*1024),
-                       huge_blocks);
-                fflush(stdout);
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-            }
-        });
-#endif
-        double t0 = now_ms();
-        auto result = con.Query(sql);
-        double elapsed = now_ms() - t0;
-#ifdef __OSV__
-        query_done.store(true, std::memory_order_relaxed);
-        mem_sampler.join();
-#endif
-
-        if (result->HasError()) {
-            printf("  [run %d] ERROR: %s\n", r + 1, result->GetError().c_str());
-            break;
-        }
-
-        printf("  [run %d] rows=%" PRIu64 "  time=%.1f ms\n",
-               r + 1, (uint64_t)result->RowCount(), elapsed);
-        #ifdef __OSV__
-        {
+    // Pre-query snapshot as initial baseline.
+    u64 peak_used;
+    size_t min_hugeblk;
+    {
+        u64 pfree  = ucache::stat_free_phys_mem();
+        u64 ptotal = ucache::stat_total_phys_mem();
+        peak_used   = ptotal - pfree;
+        min_hugeblk = ucache::stat_free_huge_blocks();
+    }
+    std::atomic<bool> query_done{false};
+    std::thread mem_sampler([&peak_used, &min_hugeblk, &query_done]() {
+        while (!query_done.load(std::memory_order_relaxed)) {
             u64 pfree  = ucache::stat_free_phys_mem();
             u64 ptotal = ucache::stat_total_phys_mem();
-            printf("  [memory]   used=%.2f GiB  free=%.2f GiB\n",
-                   (ptotal - pfree) / (1024.0*1024*1024),
-                   pfree            / (1024.0*1024*1024));
+            u64 used   = ptotal - pfree;
+            if (used > peak_used) peak_used = used;
+            size_t hb = ucache::stat_free_huge_blocks();
+            if (hb < min_hugeblk) min_hugeblk = hb;
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
         }
-        ucache::print_llfree_stats();
-        ucache::print_stats();
-        #endif
+    });
+#endif
+
+    double t0     = now_ms();
+    auto result   = con.Query(sql);
+    double elapsed = now_ms() - t0;
+
+#ifdef __OSV__
+    query_done.store(true, std::memory_order_relaxed);
+    mem_sampler.join();
+    // Final sample after query completes.
+    {
+        u64 pfree  = ucache::stat_free_phys_mem();
+        u64 ptotal = ucache::stat_total_phys_mem();
+        u64 used   = ptotal - pfree;
+        if (used > peak_used) peak_used = used;
+        size_t hb = ucache::stat_free_huge_blocks();
+        if (hb < min_hugeblk) min_hugeblk = hb;
     }
+    if (peak_used   > g_bm_peak_used)       g_bm_peak_used       = peak_used;
+    if (min_hugeblk < g_bm_min_huge_blocks) g_bm_min_huge_blocks = min_hugeblk;
+#endif
+
+    if (result->HasError()) {
+        printf("  ERROR: %s\n", result->GetError().c_str());
+        return -1.0;
+    }
+
+    printf("  rows=%" PRIu64 "  time=%.1f ms", (uint64_t)result->RowCount(), elapsed);
+#ifdef __OSV__
+    {
+        const double GiB = 1024.0 * 1024.0 * 1024.0;
+        printf("  peak_used=%.2f GiB  min_huge_blocks=%zu",
+               peak_used / GiB, min_hugeblk);
+    }
+#endif
+    printf("\n");
+#ifdef __OSV__
+    ucache::print_llfree_stats();
+    ucache::print_stats();
+#endif
+    return elapsed;
 }
 
 // ── Entry point ──────────────────────────────────────────────────────────────
@@ -156,7 +180,7 @@ int main(int argc, char** argv)
     const char *repeat_env = getenv("TPCH_REPEAT");
 
     // query_num == 0 means "all" (run queries 1-22 in order).
-    bool run_all  = !query_env || strcmp(query_env, "all") == 0;
+    bool run_all   = !query_env || strcmp(query_env, "all") == 0;
     int  query_num = run_all ? 0 : atoi(query_env);
     int  repeat    = repeat_env ? atoi(repeat_env) : 1;
 
@@ -278,7 +302,7 @@ int main(int argc, char** argv)
         printf("Usage: set TPCH_QUERY=<1-22|all> [TPCH_REPEAT=K]\n");
         printf("  TPCH_QUERY=N    run TPC-H query N (1-22)\n");
         printf("  TPCH_QUERY=all  run all queries 1-22 sequentially (default)\n");
-        printf("  TPCH_REPEAT=K   repeat each query K times (default: 1)\n");
+        printf("  TPCH_REPEAT=K   single query: repeat K times; all: repeat full sequence K times\n");
         return 1;
     }
 
@@ -308,12 +332,33 @@ int main(int argc, char** argv)
 #endif
 
     if (run_all) {
-        double t_all = now_ms();
-        for (int q = 1; q <= 22; q++)
-            run_query(con, q, repeat);
-        printf("\n=== TOTAL time=%.1f ms ===\n", now_ms() - t_all);
+        for (int rep = 0; rep < repeat; rep++) {
+            double t_sum = 0.0;
+            if (repeat > 1) printf("\n=== SEQUENCE RUN %d/%d ===\n", rep + 1, repeat);
+            for (int q = 1; q <= 22; q++) {
+                double t = run_query(con, q);
+                if (t >= 0.0) t_sum += t;
+            }
+            printf("\n=== TOTAL time=%.1f ms ===\n", t_sum);
+        }
     } else {
-        run_query(con, query_num, repeat);
+        double t_sum = 0.0;
+        for (int r = 0; r < repeat; r++) {
+            if (repeat > 1) printf("\n=== RUN %d/%d ===\n", r + 1, repeat);
+            double t = run_query(con, query_num);
+            if (t < 0.0) break;
+            t_sum += t;
+        }
+        if (repeat > 1) printf("\n=== TOTAL time=%.1f ms ===\n", t_sum);
     }
+
+#ifdef __OSV__
+    {
+        const double GiB = 1024.0 * 1024.0 * 1024.0;
+        size_t min_hb = (g_bm_min_huge_blocks == ~(size_t)0) ? 0 : g_bm_min_huge_blocks;
+        printf("\n=== BENCHMARK PEAK: used=%.2f GiB  min_huge_blocks=%zu ===\n",
+               g_bm_peak_used / GiB, min_hb);
+    }
+#endif
     return 0;
 }
